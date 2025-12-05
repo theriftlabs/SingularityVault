@@ -1,35 +1,64 @@
 package com.example.passwordstorageapp.feature.auth
 
 import android.content.Context
-import java.security.MessageDigest
+import android.util.Base64
+import java.security.SecureRandom
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 class MasterPasswordRepository(context : Context) {
     private val prefs = context.getSharedPreferences("master_password_prefs", Context.MODE_PRIVATE)
 
     companion object{
-        private const val KEY_PASSWORD_HASH = "master_password_hash"
+        private const val KEY_PASSWORD_HASH  = "master_password_hash"
+        private const val KEY_SALT = "key_salt"
     }
 
     fun isMasterPasswordSet(): Boolean{
-        return prefs.contains(KEY_PASSWORD_HASH)
+        return prefs.contains(KEY_PASSWORD_HASH) && prefs.contains(KEY_SALT)
     }
 
     fun setMasterPassword(password : String){
-        val hash = hashPassword(password)
+        val salt = ByteArray(16)
+        SecureRandom().nextBytes(salt)
+
+        val spec = PBEKeySpec(
+            password.toCharArray(),
+            salt,
+            100_000,
+            256
+        )
+
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val derivedKey = factory.generateSecret(spec).encoded
+        spec.clearPassword()
+
+        val saltString = Base64.encodeToString(salt, Base64.NO_WRAP)
+        val keyString = Base64.encodeToString(derivedKey, Base64.NO_WRAP)
+
         prefs.edit()
-            .putString(KEY_PASSWORD_HASH, hash)
+            .putString(KEY_SALT, saltString)
+            .putString(KEY_PASSWORD_HASH, keyString)
             .apply()
     }
 
     fun verifyPassword(password : String): Boolean{
-        val storedHash = prefs.getString(KEY_PASSWORD_HASH, null) ?: return false
-        val inputHash = hashPassword(password)
-        return storedHash == inputHash
-    }
+        val storedKeyString = prefs.getString(KEY_PASSWORD_HASH, null) ?: return false
+        val storedSaltString = prefs.getString(KEY_SALT, null) ?: return false
+        val storedSaltBytes = Base64.decode(storedSaltString, Base64.NO_WRAP)
+        val storedKeyBytes = Base64.decode(storedKeyString, Base64.NO_WRAP)
 
-    private fun hashPassword(password : String): String{
-        val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = digest.digest(password.toByteArray())
-        return bytes.joinToString("") { "%02x".format(it) }
+        val spec = PBEKeySpec(
+            password.toCharArray(),
+            storedSaltBytes,
+            100_000,
+            256
+        )
+
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val inputKey = factory.generateSecret(spec).encoded
+        spec.clearPassword()
+
+        return storedKeyBytes.contentEquals(inputKey)
     }
 }
