@@ -1,35 +1,33 @@
-
 package com.example.passwordstorageapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.example.passwordstorageapp.feature.auth.MasterPasswordRepository
-import com.example.passwordstorageapp.feature.home.AppContent
+import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.example.passwordstorageapp.feature.auth.SessionViewModel
-import androidx.activity.viewModels
 import com.example.passwordstorageapp.data.AppDatabase
 import com.example.passwordstorageapp.data.VaultRepository
+import com.example.passwordstorageapp.feature.auth.MasterPasswordRepository
+import com.example.passwordstorageapp.feature.auth.SessionViewModel
+import com.example.passwordstorageapp.feature.home.AppContent
 import com.example.passwordstorageapp.feature.home.VaultViewModel
 import com.example.passwordstorageapp.feature.home.VaultViewModelFactory
 
 class MainActivity : ComponentActivity() {
+
     private lateinit var masterPasswordRepository: MasterPasswordRepository
+
+    // SessionViewModel: no factory needed
     private val sessionViewModel: SessionViewModel by viewModels()
 
-
-    // add this:
-//    private lateinit var vaultRepository: VaultRepository
-    private val vaultRepository by lazy {
-        val db = AppDatabase.getDatabase(applicationContext)
-        val vaultDao = db.vaultDao()
-        VaultRepository(vaultDao)
-    }
+    // VaultViewModel: build DB + DAO + Repo INSIDE the factory
     private val vaultViewModel: VaultViewModel by viewModels {
-        VaultViewModelFactory(vaultRepository)
+        val db = AppDatabase.getDatabase(applicationContext)
+        val dao = db.vaultDao()
+        val repo = VaultRepository(dao)
+        VaultViewModelFactory(repo)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,11 +35,7 @@ class MainActivity : ComponentActivity() {
 
         masterPasswordRepository = MasterPasswordRepository(applicationContext)
 
-        // DB + DAO + REPO setup
-        val db = AppDatabase.getDatabase(applicationContext)
-        val vaultDao = db.vaultDao()
-        //vaultRepository = VaultRepository(vaultDao)
-
+        // Lock on app background
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_STOP) {
@@ -56,7 +50,6 @@ class MainActivity : ComponentActivity() {
                 masterPasswordRepository = masterPasswordRepository,
                 sessionViewModel = sessionViewModel,
                 vaultViewModel = vaultViewModel
-                //vaultRepository = vaultRepository   // ✅ pass it down
             )
         }
     }

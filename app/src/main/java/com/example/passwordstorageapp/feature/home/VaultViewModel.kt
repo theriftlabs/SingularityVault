@@ -21,7 +21,12 @@ class VaultViewModel(
                 initialValue = emptyList()
             )
 
-    fun addEntry(service: String, username: String, password: String, notes: String?) {
+    fun addEntry(
+        service: String,
+        username: String,
+        password: String,
+        notes: String?
+    ) {
         viewModelScope.launch {
             repository.insertEntry(
                 VaultEntry(
