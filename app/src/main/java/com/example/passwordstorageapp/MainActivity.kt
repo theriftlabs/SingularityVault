@@ -34,14 +34,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         masterPasswordRepository = MasterPasswordRepository(applicationContext)
-
-        // Lock on app background
-        ProcessLifecycleOwner.get().lifecycle.addObserver(
-            LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_STOP) {
-                    sessionViewModel.markLocked()
-                    sessionViewModel.vaultKey = null
-                }
+        ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver{_, event ->
+            if(event == Lifecycle.Event.ON_STOP){
+                sessionViewModel.markLocked()
+                sessionViewModel.vaultKey = null
             }
         )
 

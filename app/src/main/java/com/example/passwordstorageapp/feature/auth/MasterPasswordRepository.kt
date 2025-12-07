@@ -42,9 +42,9 @@ class MasterPasswordRepository(context : Context) {
             .apply()
     }
 
-    fun verifyPassword(password : String): Boolean{
-        val storedKeyString = prefs.getString(KEY_PASSWORD_HASH, null) ?: return false
-        val storedSaltString = prefs.getString(KEY_SALT, null) ?: return false
+    fun verifyPassword(password : String): ByteArray?{
+        val storedKeyString = prefs.getString(KEY_PASSWORD_HASH, null) ?: return null
+        val storedSaltString = prefs.getString(KEY_SALT, null) ?: return null
         val storedSaltBytes = Base64.decode(storedSaltString, Base64.NO_WRAP)
         val storedKeyBytes = Base64.decode(storedKeyString, Base64.NO_WRAP)
 
@@ -59,6 +59,9 @@ class MasterPasswordRepository(context : Context) {
         val inputKey = factory.generateSecret(spec).encoded
         spec.clearPassword()
 
-        return storedKeyBytes.contentEquals(inputKey)
+        if(storedKeyBytes.contentEquals(inputKey)){
+            return inputKey
+        }
+        return null
     }
 }

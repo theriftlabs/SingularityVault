@@ -23,13 +23,10 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun UnlockScreen(
     masterPasswordRepository: MasterPasswordRepository,
-    onUnlockSuccess: () -> Unit = {}
+    onUnlockSuccess: (ByteArray) -> Unit = {}
 ){
     var password by remember{ mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    val context = LocalContext.current
-    val masterPasswordRepo = remember { MasterPasswordRepository(context) }
 
     Column(
         verticalArrangement = Arrangement.Center,
@@ -46,10 +43,10 @@ fun UnlockScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
-            val check = masterPasswordRepo.verifyPassword(password)
-            if(check){
+            val check = masterPasswordRepository.verifyPassword(password)
+            if(check != null){
                 errorMessage = null
-                onUnlockSuccess()
+                onUnlockSuccess(check)
             }
             else{
                 errorMessage = "Wrong master password"
