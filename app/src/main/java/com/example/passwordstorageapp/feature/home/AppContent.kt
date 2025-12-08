@@ -14,7 +14,7 @@ import com.example.passwordstorageapp.feature.auth.SetupMasterPasswordScreen
 import com.example.passwordstorageapp.feature.auth.UnlockScreen
 
 @Composable
-fun AppContent(masterPasswordRepository: MasterPasswordRepository, sessionViewModel : SessionViewModel){
+fun AppContent(masterPasswordRepository: MasterPasswordRepository, sessionViewModel : SessionViewModel, vaultViewModel: VaultViewModel){
     val navController = rememberNavController()
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -73,7 +73,9 @@ fun AppContent(masterPasswordRepository: MasterPasswordRepository, sessionViewMo
                             inclusive = true
                         }
                     }
-                }
+                },
+                sessionViewModel,
+                vaultViewModel
             )
         }
     }

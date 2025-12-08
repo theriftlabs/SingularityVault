@@ -10,10 +10,20 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.example.passwordstorageapp.feature.auth.SessionViewModel
 import androidx.activity.viewModels
+import com.example.passwordstorageapp.data.AppDatabase
+import com.example.passwordstorageapp.feature.home.VaultViewModel
+import com.example.passwordstorageapp.feature.home.VaultViewModelFactory
+import data.VaultRepository
 
 class MainActivity : ComponentActivity() {
     private lateinit var masterPasswordRepository: MasterPasswordRepository
     private val sessionViewModel: SessionViewModel by viewModels()
+    private val vaultViewModel: VaultViewModel by viewModels {
+        val db = AppDatabase.getDatabase(applicationContext)
+        val dao = db.vaultDao()
+        val repo = VaultRepository(dao)
+        VaultViewModelFactory(repo)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         masterPasswordRepository = MasterPasswordRepository(applicationContext)
@@ -24,7 +34,7 @@ class MainActivity : ComponentActivity() {
             }
         })
         setContent {
-            AppContent(masterPasswordRepository, sessionViewModel)
+            AppContent(masterPasswordRepository, sessionViewModel, vaultViewModel)
         }
     }
 }
