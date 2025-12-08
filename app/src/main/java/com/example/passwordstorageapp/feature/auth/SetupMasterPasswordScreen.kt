@@ -78,6 +78,10 @@ fun SetupMasterPasswordScreen(
         }){
             Text("Confirm")
         }
+        Spacer(modifier = Modifier.height(30.dp))
+        Text("Warning\n" +
+                "Your master password cannot be recovered.\n" +
+                "If you lose it, all stored data will be permanently inaccessible.")
     }
 }
 

@@ -3,6 +3,7 @@ package com.example.passwordstorageapp.feature.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,14 +37,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.passwordstorageapp.data.VaultEntry
-import com.example.passwordstorageapp.feature.auth.SessionViewModel
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onIdleTimeout : () -> Unit,
-    sessionViewModel: SessionViewModel,
+    onEntryClick : (VaultEntry) -> Unit,
     vaultViewModel: VaultViewModel
 ) {
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -105,7 +106,14 @@ fun HomeScreen(
                     items(entries) { entry ->
                         VaultEntryCard(
                             entry = entry,
-                            onClick = { touch() }
+                            onClick = {
+                                touch()
+                                onEntryClick(entry)
+                            },
+                            onDeleteClick = {
+                                touch()
+                                vaultViewModel.deleteEntry(entry)
+                            }
                         )
                     }
                 }
@@ -116,7 +124,6 @@ fun HomeScreen(
             AlertDialog(
                 onDismissRequest = {
                     touch()
-                    showAddDialog = false
                 },
                 title = { Text("Add entry") },
                 text = {
@@ -214,23 +221,47 @@ fun HomeScreen(
 @Composable
 private fun VaultEntryCard(
     entry: VaultEntry,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
-        onClick = { onClick() }
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(text = entry.serviceName, style = MaterialTheme.typography.titleMedium)
-            Text(text = entry.username, style = MaterialTheme.typography.bodyMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = entry.serviceName,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                IconButton(
+                    onClick = {
+                        // Prevent click-through to the card click
+                        onDeleteClick()
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete entry",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Text(entry.username, style = MaterialTheme.typography.bodyMedium)
+
             if (!entry.notes.isNullOrBlank()) {
                 Text(
-                    text = entry.notes,
-                    style = MaterialTheme.typography.bodySmall
+                    entry.notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
             }
         }
