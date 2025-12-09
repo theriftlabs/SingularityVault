@@ -1,5 +1,6 @@
 package com.example.passwordstorageapp.feature.auth
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
+import androidx.biometric.BiometricManager
 
 @Composable
 fun SetupMasterPasswordScreen(
@@ -30,7 +33,9 @@ fun SetupMasterPasswordScreen(
     var errorMessage by remember{ mutableStateOf<String?>(null) }
 
     val context = LocalContext.current
-    val masterPasswordRepo = remember { MasterPasswordRepository(context) }
+    val biometricKeyStoreManager = remember { BiometricKeyStoreManager(context) }
+    var pendingDerivedKey by remember { mutableStateOf<ByteArray?>(null) }
+    var showBiometricDialog by remember { mutableStateOf(false) }
 
     Column(
         verticalArrangement = Arrangement.Center,
@@ -70,9 +75,10 @@ fun SetupMasterPasswordScreen(
                     errorMessage = "Password is too weak"
                 }
                 else -> {
-                    masterPasswordRepo.setMasterPassword(password)
+                    val derivedKey = masterPasswordRepository.setMasterPassword(password)
+                    pendingDerivedKey = derivedKey
                     errorMessage = null
-                    onSetupComplete()
+                    showBiometricDialog = true
                 }
             }
         }){
@@ -82,6 +88,68 @@ fun SetupMasterPasswordScreen(
         Text("Warning\n" +
                 "Your master password cannot be recovered.\n" +
                 "If you lose it, all stored data will be permanently inaccessible.")
+    }
+
+    if (showBiometricDialog && pendingDerivedKey != null) {
+        AlertDialog(
+            onDismissRequest = {
+                // If they dismiss without choosing, just skip biometrics
+                showBiometricDialog = false
+                pendingDerivedKey = null
+                onSetupComplete()
+            },
+            title = { Text("Enable biometric unlock?") },
+            text = {
+                Text(
+                    "You can unlock Nano Vault using fingerprint or face. " +
+                            "Your master password will still be required if biometrics fail."
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val biometricManager = BiometricManager.from(context)
+                    val canAuth = biometricManager.canAuthenticate(
+                        BiometricManager.Authenticators.BIOMETRIC_STRONG
+                    )
+
+                    when(canAuth){
+                        BiometricManager.BIOMETRIC_SUCCESS -> {
+                            val key = pendingDerivedKey
+                            if (key != null) {
+                                biometricKeyStoreManager.saveDerivedKey(key)
+                            }
+                            showBiometricDialog = false
+                            pendingDerivedKey = null
+                            onSetupComplete()
+                        }
+                        BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
+                            Toast.makeText(context, "No biometrics enrolled. Enable fingerprint/face in settings.", Toast.LENGTH_SHORT).show()
+                            showBiometricDialog = false
+                            pendingDerivedKey = null
+                            onSetupComplete()
+                        }
+                        else -> {
+                            Toast.makeText(context, "Biometric unlock is not available on this device", Toast.LENGTH_SHORT).show()
+                            showBiometricDialog = false
+                            pendingDerivedKey = null
+                            onSetupComplete()
+                        }
+                    }
+
+                }) {
+                    Text("Enable")
+                }
+            },
+            dismissButton = {
+                Button(onClick = {
+                    showBiometricDialog = false
+                    pendingDerivedKey = null
+                    onSetupComplete()
+                }) {
+                    Text("Not now")
+                }
+            }
+        )
     }
 }
 

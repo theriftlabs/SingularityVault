@@ -18,7 +18,7 @@ class MasterPasswordRepository(context : Context) {
         return prefs.contains(KEY_PASSWORD_HASH) && prefs.contains(KEY_SALT)
     }
 
-    fun setMasterPassword(password : String){
+    fun setMasterPassword(password : String) : ByteArray? {
         val salt = ByteArray(16)
         SecureRandom().nextBytes(salt)
 
@@ -40,6 +40,8 @@ class MasterPasswordRepository(context : Context) {
             .putString(KEY_SALT, saltString)
             .putString(KEY_PASSWORD_HASH, keyString)
             .apply()
+
+        return derivedKey
     }
 
     fun verifyPassword(password : String): ByteArray?{

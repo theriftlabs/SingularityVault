@@ -63,7 +63,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nano Vault") },
+                title = { Text("ZeroTrace") },
                 actions = {
                     IconButton(onClick = {
                         touch()

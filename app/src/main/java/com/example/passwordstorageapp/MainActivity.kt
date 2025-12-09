@@ -10,12 +10,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.example.passwordstorageapp.feature.auth.SessionViewModel
 import androidx.activity.viewModels
+import androidx.fragment.app.FragmentActivity
 import com.example.passwordstorageapp.data.AppDatabase
 import com.example.passwordstorageapp.feature.home.VaultViewModel
 import com.example.passwordstorageapp.feature.home.VaultViewModelFactory
 import data.VaultRepository
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private lateinit var masterPasswordRepository: MasterPasswordRepository
     private val sessionViewModel: SessionViewModel by viewModels()
     private val vaultViewModel: VaultViewModel by viewModels {
