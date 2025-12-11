@@ -1,16 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Normal app theme (used after splash) -->
     <style name="Theme.SingularityVault" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Plain background so no logo flashes between screens -->
         <item name="android:windowBackground">@android:color/black</item>
-        <!-- Let Compose handle colors, typography, etc. -->
     </style>
 
-    <!-- Launch theme (only for startup splash) -->
     <style name="Theme.SingularityVault.Launch" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- Show logo while app is starting -->
         <item name="android:windowBackground">@drawable/splash_background</item>
         <item name="android:windowIsTranslucent">false</item>
     </style>

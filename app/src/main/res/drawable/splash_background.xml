@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Solid background color outside the logo -->
+    <item android:drawable="@color/splash_background_color" />
+
+    <!-- Centered logo (use drawable-nodpi image so it's not treated as adaptive) -->
+    <item>
+        <bitmap
+            android:src="@drawable/singularity_vault_logo_final"
+            android:gravity="center" />
+    </item>
+
+</layer-list>

@@ -17,25 +17,27 @@ class VaultViewModel(
     private val repository: VaultRepository
 ) : ViewModel() {
 
-    private var cryptoManager : CryptoManager? = null
+    private var cryptoManager: CryptoManager? = null
 
-    fun setKey(key : ByteArray){
+    fun setKey(key: ByteArray) {
         cryptoManager = CryptoManager(key)
     }
 
-    fun clearKey(){
+    fun clearKey() {
         cryptoManager = null
     }
 
-    val entries: StateFlow<List<VaultEntry>> =
+    // 🔹 Now nullable: null = still loading / not ready
+    val entries: StateFlow<List<VaultEntry>?> =
         repository.getAllEntries()
-            .map{ list ->
+            .map { list ->
                 val crypto = cryptoManager
-                if(crypto == null){
+                if (crypto == null) {
+                    // When vault is locked we shouldn't even be on Home,
+                    // but return empty to be safe.
                     emptyList()
-                }
-                else{
-                    list.map{
+                } else {
+                    list.map {
                         decryptEntry(it, crypto)
                     }
                 }
@@ -43,14 +45,14 @@ class VaultViewModel(
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
-                initialValue = emptyList()
+                initialValue = null        // << key change
             )
 
-    private fun decryptEntry(vaultEntry: VaultEntry, cryptoManager: CryptoManager) : VaultEntry{
+    private fun decryptEntry(vaultEntry: VaultEntry, cryptoManager: CryptoManager): VaultEntry {
         return vaultEntry.copy(
             username = cryptoManager.decryptFromBase64(vaultEntry.username),
             password = cryptoManager.decryptFromBase64(vaultEntry.password),
-            notes = vaultEntry.notes?.let{
+            notes = vaultEntry.notes?.let {
                 cryptoManager.decryptFromBase64(it)
             }
         )
@@ -69,7 +71,7 @@ class VaultViewModel(
         val encryptedPassword = crypto.encryptToBase64(password)
         val encryptedNotes = notes?.takeIf {
             it.isNotBlank()
-        }?.let{
+        }?.let {
             crypto.encryptToBase64(it)
         }
 
@@ -85,7 +87,7 @@ class VaultViewModel(
         }
     }
 
-    fun updateEntry(vaultEntry: VaultEntry){
+    fun updateEntry(vaultEntry: VaultEntry) {
         val crypto = cryptoManager
             ?: throw IllegalArgumentException("Vault is locked - no key set in VaultViewModel")
 
@@ -93,7 +95,7 @@ class VaultViewModel(
         val encryptedPassword = crypto.encryptToBase64(vaultEntry.password)
         val encryptedNotes = vaultEntry.notes?.takeIf {
             it.isNotBlank()
-        }?.let{
+        }?.let {
             crypto.encryptToBase64(it)
         }
 
