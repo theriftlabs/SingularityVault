@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class VaultViewModel(
     private val repository: VaultRepository
@@ -27,25 +28,28 @@ class VaultViewModel(
         cryptoManager = null
     }
 
-    // 🔹 Now nullable: null = still loading / not ready
     val entries: StateFlow<List<VaultEntry>?> =
         repository.getAllEntries()
             .map { list ->
                 val crypto = cryptoManager
                 if (crypto == null) {
-                    // When vault is locked we shouldn't even be on Home,
-                    // but return empty to be safe.
                     emptyList()
                 } else {
-                    list.map {
-                        decryptEntry(it, crypto)
+                    // defensive: if a single entry fails to decrypt, skip it instead of crashing
+                    list.mapNotNull { stored ->
+                        try {
+                            decryptEntry(stored, crypto)
+                        } catch (e: Exception) {
+                            // skip corrupted / wrong-key items
+                            null
+                        }
                     }
                 }
             }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
-                initialValue = null        // << key change
+                initialValue = null
             )
 
     private fun decryptEntry(vaultEntry: VaultEntry, cryptoManager: CryptoManager): VaultEntry {
@@ -113,6 +117,44 @@ class VaultViewModel(
     fun deleteEntry(entry: VaultEntry) {
         viewModelScope.launch {
             repository.deleteEntry(entry)
+        }
+    }
+
+    // Re-encrypt all entries safely using oldKey -> newKey
+    // onComplete is invoked when finished (success/failure not reported separately here;
+    // caller may verify outcomes by catching errors or checking logs)
+    fun reencryptAll(oldKey: ByteArray, newKey: ByteArray, onComplete: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            try {
+                val oldCrypto = CryptoManager(oldKey)
+                val newCrypto = CryptoManager(newKey)
+
+                // get raw stored entries once (these are still encrypted with the old key)
+                val storedList = repository.getAllEntries().first()
+
+                storedList.forEach { stored ->
+                    // decrypt with old key
+                    val decryptedUsername = oldCrypto.decryptFromBase64(stored.username)
+                    val decryptedPassword = oldCrypto.decryptFromBase64(stored.password)
+                    val decryptedNotes = stored.notes?.let { oldCrypto.decryptFromBase64(it) }
+
+                    // encrypt with new key
+                    val reEncryptedUsername = newCrypto.encryptToBase64(decryptedUsername)
+                    val reEncryptedPassword = newCrypto.encryptToBase64(decryptedPassword)
+                    val reEncryptedNotes = decryptedNotes?.let { newCrypto.encryptToBase64(it) }
+
+                    val replaced = stored.copy(
+                        username = reEncryptedUsername,
+                        password = reEncryptedPassword,
+                        notes = reEncryptedNotes
+                    )
+
+                    repository.insertEntry(replaced)
+                }
+            } finally {
+                // wipe sensitive buffers at caller level if needed; invoke completion
+                onComplete?.invoke()
+            }
         }
     }
 }
