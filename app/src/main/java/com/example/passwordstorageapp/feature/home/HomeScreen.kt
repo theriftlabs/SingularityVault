@@ -2,31 +2,27 @@ package com.example.passwordstorageapp.feature.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.passwordstorageapp.R
 import com.example.passwordstorageapp.data.VaultEntry
 import com.example.passwordstorageapp.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
-import com.example.passwordstorageapp.R
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,14 +32,10 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     vaultViewModel: VaultViewModel
 ) {
-    // Idle timer
+    // ---------- Idle timer ----------
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    fun touch() { lastInteractionTime = System.currentTimeMillis() }
 
-    fun touch() {
-        lastInteractionTime = System.currentTimeMillis()
-    }
-
-    // Global interaction detector: any touch / scroll will call touch()
     val interactionModifier = Modifier.pointerInput(Unit) {
         while (true) {
             awaitPointerEventScope {
@@ -54,15 +46,17 @@ fun HomeScreen(
     }
 
     GradientBackground(modifier = interactionModifier) {
-        // 🔹 entries is now nullable
+
         val entries: List<VaultEntry>? by vaultViewModel.entries.collectAsState()
 
-        // Add-entry dialog fields
         var showAddDialog by remember { mutableStateOf(false) }
         var serviceName by remember { mutableStateOf("") }
         var username by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var notes by remember { mutableStateOf("") }
+
+        // 🔥 Delete confirmation state
+        var entryPendingDelete by remember { mutableStateOf<VaultEntry?>(null) }
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -70,49 +64,34 @@ fun HomeScreen(
                 Column {
                     CenterAlignedTopAppBar(
                         title = {
-                            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                            val isDark =
+                                MaterialTheme.colorScheme.background.luminance() < 0.5f
+                            val logoRes =
+                                if (isDark)
+                                    R.drawable.singularity_vault_logo_dark_new2
+                                else
+                                    R.drawable.singularity_vault_logo_light_new2
 
-                            val logoRes = if (isDark) {
-                                R.drawable.singularity_vault_logo_dark_new2
-                            } else {
-                                R.drawable.singularity_vault_logo_light_new2
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .height(90.dp)
-                                    .width(90.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(id = logoRes),
-                                    contentDescription = "App logo",
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
+                            Image(
+                                painter = painterResource(logoRes),
+                                contentDescription = "App logo",
+                                modifier = Modifier.size(90.dp),
+                                contentScale = ContentScale.Fit
+                            )
                         },
                         actions = {
-                            IconButton(
-                                onClick = {
-                                    touch()
-                                    showAddDialog = true
-                                }
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = "Add entry"
-                                )
+                            IconButton(onClick = {
+                                touch()
+                                showAddDialog = true
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add entry")
                             }
 
-                            IconButton(
-                                onClick = {
-                                    touch()
-                                    onSettingsClick()
-                                }
-                            ) {
-                                Icon(
-                                    Icons.Default.Settings,
-                                    contentDescription = "Settings"
-                                )
+                            IconButton(onClick = {
+                                touch()
+                                onSettingsClick()
+                            }) {
+                                Icon(Icons.Default.Settings, contentDescription = "Settings")
                             }
                         }
                     )
@@ -132,7 +111,6 @@ fun HomeScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 when {
-                    // 🔹 First load: entries == null → show subtle loading instead of "No entries"
                     entries == null -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -145,17 +123,13 @@ fun HomeScreen(
                         }
                     }
 
-                    // Real empty state
                     entries!!.isEmpty() -> {
-                        EmptyState(
-                            onAddClick = {
-                                touch()
-                                showAddDialog = true
-                            }
-                        )
+                        EmptyState {
+                            touch()
+                            showAddDialog = true
+                        }
                     }
 
-                    // Normal list
                     else -> {
                         EntryList(
                             entries = entries!!,
@@ -165,30 +139,30 @@ fun HomeScreen(
                             },
                             onDeleteClick = {
                                 touch()
-                                vaultViewModel.deleteEntry(it)
+                                entryPendingDelete = it
                             }
                         )
                     }
                 }
 
-                // Add-entry dialog
                 if (showAddDialog) {
                     AddEntryDialog(
                         serviceName = serviceName,
                         username = username,
                         password = password,
                         notes = notes,
-                        onServiceNameChange = { serviceName = it; touch() },
-                        onUsernameChange = { username = it; touch() },
-                        onPasswordChange = { password = it; touch() },
-                        onNotesChange = { notes = it; touch() },
+                        onServiceNameChange = { serviceName = it },
+                        onUsernameChange = { username = it },
+                        onPasswordChange = { password = it },
+                        onNotesChange = { notes = it },
                         onDismiss = {
-                            showAddDialog = false
                             touch()
+                            showAddDialog = false
                         },
                         onConfirm = {
                             touch()
-                            if (serviceName.isNotBlank() &&
+                            if (
+                                serviceName.isNotBlank() &&
                                 username.isNotBlank() &&
                                 password.isNotBlank()
                             ) {
@@ -204,12 +178,80 @@ fun HomeScreen(
                                 notes = ""
                                 showAddDialog = false
                             }
-                        }
+                        },
+                        onUserInteraction = { touch() }
                     )
                 }
             }
 
-            // Idle timeout coroutine
+            // ---------- Delete confirmation dialog ----------
+            entryPendingDelete?.let { entry ->
+                AlertDialog(
+                    onDismissRequest = {
+                        touch()
+                        entryPendingDelete = null
+                    },
+                    title = {
+                        Text(
+                            text = "Delete entry?",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                            Text(
+                                text = "This action cannot be undone.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+
+                            Text(
+                                text = entry.serviceName.ifBlank { "Unnamed service" },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            Text(
+                                text = entry.username,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                touch()
+                                vaultViewModel.deleteEntry(entry)
+                                entryPendingDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.Black   // 🔑 FORCE BLACK TEXT
+                            )
+                        ) {
+                            Text("Delete")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                touch()
+                                entryPendingDelete = null
+                            }
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                )
+            }
+
+            // ---------- Idle timeout ----------
             LaunchedEffect(Unit) {
                 val timeoutMs = 15_000L
                 while (true) {
@@ -223,7 +265,6 @@ fun HomeScreen(
         }
     }
 }
-
 
 @Composable
 private fun EmptyState(
@@ -302,9 +343,20 @@ private fun AddEntryDialog(
     onNotesChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    onUserInteraction: () -> Unit   // 🔑 NEW
 ) {
+    val strengthResult = remember(password) {
+        checkPasswordStrength(password)
+    }
+
+    var suggestedPassword by remember { mutableStateOf("") }
+    var showSuggestion by remember { mutableStateOf(false) }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            onUserInteraction()
+            onDismiss()
+        },
         title = {
             Text(
                 text = "Add entry",
@@ -313,32 +365,150 @@ private fun AddEntryDialog(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier
+                    .pointerInput(Unit) {
+                        while (true) {
+                            awaitPointerEventScope {
+                                awaitPointerEvent()
+                                onUserInteraction()
+                            }
+                        }
+                    },
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+
+                // -------- Basic info --------
                 OutlinedTextField(
                     value = serviceName,
-                    onValueChange = onServiceNameChange,
+                    onValueChange = {
+                        onUserInteraction()
+                        onServiceNameChange(it)
+                    },
                     label = { Text("Service name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
                 OutlinedTextField(
                     value = username,
-                    onValueChange = onUsernameChange,
+                    onValueChange = {
+                        onUserInteraction()
+                        onUsernameChange(it)
+                    },
                     label = { Text("Username / email") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // -------- Password section --------
+                Divider()
+
+                Text(
+                    text = "Password",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
                 OutlinedTextField(
                     value = password,
-                    onValueChange = onPasswordChange,
+                    onValueChange = {
+                        onUserInteraction()
+                        onPasswordChange(it)
+                        showSuggestion = false
+                    },
                     label = { Text("Password") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (password.isNotBlank() && !strengthResult.isStrong) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "Improve password strength:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        strengthResult.issues.forEach {
+                            Text(
+                                "• $it",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        onUserInteraction()
+                        suggestedPassword =
+                            generateStrongPassword()
+                        showSuggestion = true
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate strong password")
+                }
+
+                if (showSuggestion) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                "Suggested password",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                suggestedPassword,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        onUserInteraction()
+                                        onPasswordChange(suggestedPassword)
+                                        showSuggestion = false
+                                    }
+                                ) {
+                                    Text("Use")
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        onUserInteraction()
+                                        suggestedPassword =
+                                            generateStrongPassword()
+                                    }
+                                ) {
+                                    Text("Regenerate")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // -------- Notes --------
+                Divider()
+
                 OutlinedTextField(
                     value = notes,
-                    onValueChange = onNotesChange,
+                    onValueChange = {
+                        onUserInteraction()
+                        onNotesChange(it)
+                    },
                     label = { Text("Notes (optional)") },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
@@ -346,12 +516,18 @@ private fun AddEntryDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onConfirm) {
+            Button(onClick = {
+                onUserInteraction()
+                onConfirm()
+            }) {
                 Text("Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(onClick = {
+                onUserInteraction()
+                onDismiss()
+            }) {
                 Text("Cancel")
             }
         }

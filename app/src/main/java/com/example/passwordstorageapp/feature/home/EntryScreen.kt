@@ -5,17 +5,14 @@ import android.content.ClipboardManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -26,8 +23,6 @@ import com.example.passwordstorageapp.data.VaultEntry
 import com.example.passwordstorageapp.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.input.pointer.pointerInput
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +30,7 @@ fun EntryScreen(
     vaultEntry: VaultEntry,
     onEditComplete: (VaultEntry) -> Unit,
     onBack: () -> Unit,
-    onIdleTimeout: () -> Unit        // 🔹 NEW: lock from entry screen too
+    onIdleTimeout: () -> Unit
 ) {
     GradientBackground {
         var isEditing by remember { mutableStateOf(false) }
@@ -45,17 +40,13 @@ fun EntryScreen(
         var editedPassword by remember { mutableStateOf(vaultEntry.password) }
         var editedNote by remember { mutableStateOf(vaultEntry.notes ?: "") }
 
-        // Password visibility in EDIT mode
         var isEditPasswordVisible by remember { mutableStateOf(false) }
+        var showWeakPasswordInfo by remember { mutableStateOf(false) }
 
-        // -------- idle timer state ----------
+        // ---------- Idle timer ----------
         var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
+        fun touch() { lastInteractionTime = System.currentTimeMillis() }
 
-        fun touch() {
-            lastInteractionTime = System.currentTimeMillis()
-        }
-
-        // global interaction (any touch / scroll)
         val interactionModifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
@@ -67,27 +58,26 @@ fun EntryScreen(
                 }
             }
 
-        // Dark / light detection for card styling
-        val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-
-        val cardColors = if (isDark) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
-            )
-        } else {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
-            )
+        val strengthResult = remember(editedPassword) {
+            checkPasswordStrength(editedPassword)
         }
 
-        val cardElevation = if (isDark) 8.dp else 6.dp
-        val cardBorder: BorderStroke? =
-            if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+        val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
+        val cardColors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(
+                alpha = if (isDark) 0.88f else 0.96f
+            )
+        )
+
+        val cardBorder =
+            if (isDark)
+                BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             else null
 
-        Box(modifier = interactionModifier) {   // 🧠 attach global touch listener here
+        Box(modifier = interactionModifier) {
             Scaffold(
-                containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                containerColor = Color.Transparent,
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -103,222 +93,259 @@ fun EntryScreen(
                                     touch()
                                     onBack()
                                 }) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ArrowBack,
-                                        contentDescription = "Back"
-                                    )
+                                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                                 }
                             }
                         )
-                        // bottom divider under top bar
                         Divider(
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
                             thickness = 1.dp
                         )
                     }
                 }
-            ) { innerPadding ->
-                Box(
+            ) { padding ->
+                Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(horizontal = 24.dp),
-                    contentAlignment = Alignment.TopCenter
+                        .padding(padding)
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        colors = cardColors,
+                        border = cardBorder,
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = if (isDark) 8.dp else 6.dp
+                        )
                     ) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large,
-                            colors = cardColors,
-                            elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
-                            border = cardBorder
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(24.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                // Header: service name
-                                Text(
-                                    text = editedService.ifBlank { "Unnamed service" },
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.onSurface
+
+                            // 🔹 Service name (fixed dark mode color)
+                            Text(
+                                text = editedService.ifBlank { "Unnamed service" },
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            if (!isEditing) {
+                                InfoFieldSecure("Username / Email", editedUsername, false)
+                                InfoFieldSecure("Password", editedPassword, true)
+
+                                if (editedNote.isNotBlank()) {
+                                    InfoField("Notes", editedNote)
+                                }
+                            } else {
+                                OutlinedTextField(
+                                    value = editedService,
+                                    onValueChange = {
+                                        editedService = it
+                                        touch()
+                                    },
+                                    label = { Text("Service name") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
 
-                                if (!isEditing) {
-                                    // DISPLAY MODE
-                                    InfoFieldSecure(
-                                        label = "Username / Email",
-                                        value = editedUsername,
-                                        isPassword = false
-                                    )
-                                    InfoFieldSecure(
-                                        label = "Password",
-                                        value = editedPassword,
-                                        isPassword = true
-                                    )
-                                    if (editedNote.isNotBlank()) {
-                                        InfoField(label = "Notes", value = editedNote)
-                                    }
-                                } else {
-                                    // EDIT MODE
-                                    OutlinedTextField(
-                                        value = editedService,
-                                        onValueChange = {
-                                            editedService = it
-                                            touch()
-                                        },
-                                        label = { Text("Service name") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
+                                OutlinedTextField(
+                                    value = editedUsername,
+                                    onValueChange = {
+                                        editedUsername = it
+                                        touch()
+                                    },
+                                    label = { Text("Username / Email") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
 
-                                    OutlinedTextField(
-                                        value = editedUsername,
-                                        onValueChange = {
-                                            editedUsername = it
-                                            touch()
-                                        },
-                                        label = { Text("Username / Email") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    OutlinedTextField(
-                                        value = editedPassword,
-                                        onValueChange = {
-                                            editedPassword = it
-                                            touch()
-                                        },
-                                        label = { Text("Password") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        visualTransformation = if (isEditPasswordVisible) {
+                                OutlinedTextField(
+                                    value = editedPassword,
+                                    onValueChange = {
+                                        editedPassword = it
+                                        touch()
+                                    },
+                                    label = { Text("Password") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    visualTransformation =
+                                        if (isEditPasswordVisible)
                                             VisualTransformation.None
-                                        } else {
-                                            PasswordVisualTransformation()
-                                        },
-                                        trailingIcon = {
-                                            IconButton(onClick = {
-                                                isEditPasswordVisible = !isEditPasswordVisible
-                                                touch()
-                                            }) {
-                                                Icon(
-                                                    imageVector = if (isEditPasswordVisible)
-                                                        Icons.Default.VisibilityOff
-                                                    else
-                                                        Icons.Default.Visibility,
-                                                    contentDescription = if (isEditPasswordVisible) {
-                                                        "Hide password"
-                                                    } else {
-                                                        "Show password"
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    )
-
-                                    OutlinedTextField(
-                                        value = editedNote,
-                                        onValueChange = {
-                                            editedNote = it
+                                        else
+                                            PasswordVisualTransformation(),
+                                    trailingIcon = {
+                                        IconButton(onClick = {
+                                            isEditPasswordVisible = !isEditPasswordVisible
                                             touch()
-                                        },
-                                        label = { Text("Notes") },
-                                        maxLines = 4,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
+                                        }) {
+                                            Icon(
+                                                if (isEditPasswordVisible)
+                                                    Icons.Default.VisibilityOff
+                                                else
+                                                    Icons.Default.Visibility,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    }
+                                )
+
+                                OutlinedButton(
+                                    onClick = {
+                                        touch()
+                                        editedPassword = generateStrongPassword()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp),
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text("Generate strong password")
                                 }
 
-                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = editedNote,
+                                    onValueChange = {
+                                        editedNote = it
+                                        touch()
+                                    },
+                                    label = { Text("Notes") },
+                                    maxLines = 4,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
 
-                                // ACTION BUTTONS
-                                if (!isEditing) {
+                            Spacer(Modifier.height(8.dp))
+
+                            if (!isEditing) {
+                                Button(
+                                    onClick = {
+                                        touch()
+                                        isEditing = true
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text("Edit entry")
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        touch()
+                                        isEditing = true
+                                        editedPassword = generateStrongPassword()
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),   // 🔑 MATCHED HEIGHT
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text("Generate strong password")
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
                                     Button(
                                         onClick = {
                                             touch()
-                                            isEditing = true
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(48.dp),
-                                        shape = MaterialTheme.shapes.medium
-                                    ) {
-                                        Text(
-                                            text = "Edit entry",
-                                            style = MaterialTheme.typography.labelLarge
-                                        )
-                                    }
-                                } else {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                touch()
-                                                val updatedEntry = vaultEntry.copy(
+                                            onEditComplete(
+                                                vaultEntry.copy(
                                                     serviceName = editedService,
                                                     username = editedUsername,
                                                     password = editedPassword,
                                                     notes = editedNote.ifBlank { null }
                                                 )
-                                                isEditing = false
-                                                onEditComplete(updatedEntry)
-                                            },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(48.dp),
-                                            shape = MaterialTheme.shapes.medium
-                                        ) {
-                                            Text(
-                                                text = "Save",
-                                                style = MaterialTheme.typography.labelLarge
                                             )
-                                        }
+                                            isEditing = false
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(52.dp),
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text("Save")
+                                    }
 
-                                        OutlinedButton(
-                                            onClick = {
-                                                touch()
-                                                // Reset back to last saved values
-                                                editedService = vaultEntry.serviceName
-                                                editedUsername = vaultEntry.username
-                                                editedPassword = vaultEntry.password
-                                                editedNote = vaultEntry.notes ?: ""
-                                                isEditing = false
-                                            },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(48.dp),
-                                            shape = MaterialTheme.shapes.medium
-                                        ) {
-                                            Text(
-                                                text = "Cancel",
-                                                style = MaterialTheme.typography.labelLarge
-                                            )
-                                        }
+                                    OutlinedButton(
+                                        onClick = {
+                                            touch()
+                                            editedService = vaultEntry.serviceName
+                                            editedUsername = vaultEntry.username
+                                            editedPassword = vaultEntry.password
+                                            editedNote = vaultEntry.notes ?: ""
+                                            isEditing = false
+                                        },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(52.dp),
+                                        shape = MaterialTheme.shapes.medium
+                                    ) {
+                                        Text("Cancel")
                                     }
                                 }
                             }
+
+                            if (!strengthResult.isStrong) {
+                                TextButton(
+                                    onClick = {
+                                        touch()
+                                        showWeakPasswordInfo = true
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "⚠ Password is weak — tap to see why",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(
-                            text = "Editing updates only this entry. Your data stays encrypted on this device.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                            textAlign = TextAlign.Center
+                    }
+                    if (showWeakPasswordInfo) {
+                        AlertDialog(
+                            onDismissRequest = {
+                                touch()
+                                showWeakPasswordInfo = false
+                            },
+                            title = {
+                                Text(
+                                    text = "Why this password is weak",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                            },
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    strengthResult.issues.forEach {
+                                        Text(
+                                            text = "• $it",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    touch()
+                                    showWeakPasswordInfo = false
+                                }) {
+                                    Text("Got it")
+                                }
+                            }
                         )
                     }
                 }
             }
 
-            // 🔒 Idle timeout coroutine
+            // ---------- Idle timeout ----------
             LaunchedEffect(Unit) {
                 val timeoutMs = 15_000L
                 while (true) {
@@ -332,6 +359,7 @@ fun EntryScreen(
         }
     }
 }
+
 
 @Composable
 private fun InfoField(
