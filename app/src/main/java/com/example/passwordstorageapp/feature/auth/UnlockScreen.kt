@@ -33,7 +33,10 @@ fun UnlockScreen(
             ?: error("UnlockScreen must be hosted in a FragmentActivity")
 
         val biometricKeyStoreManager = remember { BiometricKeyStoreManager(context) }
-        val hasBiometric = biometricKeyStoreManager.loadDerivedKey() != null
+        val hasBiometric =
+            biometricKeyStoreManager.isBiometricAvailable() &&
+                    biometricKeyStoreManager.loadDerivedKey() != null
+
 
         var password by remember { mutableStateOf("") }
         var errorMessage by remember { mutableStateOf<String?>(null) }

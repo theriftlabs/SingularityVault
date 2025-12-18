@@ -2,6 +2,7 @@ package com.example.passwordstorageapp.feature.auth
 
 import android.content.Context
 import android.util.Base64
+import androidx.biometric.BiometricManager
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.SecretKey
@@ -15,6 +16,12 @@ class BiometricKeyStoreManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("biometric_prefs", Context.MODE_PRIVATE)
     private val KEY_ALIAS = "nano_vault_biometric_key"
     private val ANDROID_KEYSTORE = "AndroidKeyStore"
+
+    fun isBiometricAvailable(): Boolean {
+        val bm = BiometricManager.from(context)
+        return bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+    }
 
     private fun getOrCreateSecretKey(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
@@ -41,6 +48,11 @@ class BiometricKeyStoreManager(private val context: Context) {
     }
 
     fun saveDerivedKey(derivedKey: ByteArray) {
+        if (!isBiometricAvailable()) {
+            clearBiometricKey()
+            return
+        }
+
         val secretKey = getOrCreateSecretKey()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
@@ -58,17 +70,26 @@ class BiometricKeyStoreManager(private val context: Context) {
     }
 
     fun loadDerivedKey(): ByteArray? {
+        if (!isBiometricAvailable()) {
+            clearBiometricKey()
+            return null
+        }
+
         val keyString = prefs.getString("encrypted_derived_key", null) ?: return null
-        val combined = Base64.decode(keyString, Base64.NO_WRAP)
 
-        val iv = combined.copyOfRange(0, 12)
-        val cipherText = combined.copyOfRange(12, combined.size)
+        return try {
+            val combined = Base64.decode(keyString, Base64.NO_WRAP)
+            val iv = combined.copyOfRange(0, 12)
+            val cipherText = combined.copyOfRange(12, combined.size)
 
-        val secretKey = getOrCreateSecretKey()
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
-
-        return cipher.doFinal(cipherText)
+            val secretKey = getOrCreateSecretKey()
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
+            cipher.doFinal(cipherText)
+        } catch (e: Exception) {
+            clearBiometricKey()
+            null
+        }
     }
 
     fun clearBiometricKey() {
