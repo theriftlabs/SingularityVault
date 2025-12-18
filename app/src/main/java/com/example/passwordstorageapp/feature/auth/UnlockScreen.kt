@@ -26,6 +26,7 @@ fun UnlockScreen(
     onUnlockSuccess: (ByteArray) -> Unit = {}
 ) {
     GradientBackground {
+        // for local context
         val context = LocalContext.current
 
         // Defensive cast — fail loudly if not inside FragmentActivity
