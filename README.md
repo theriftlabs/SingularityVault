@@ -142,15 +142,16 @@ The final decision always remains with the user.
 
 ## Screenshots
 
-![Screenshot_20251217-191401_Singularity Vault](https://github.com/user-attachments/assets/71d9c788-c024-4867-b2fa-c5ebd853c62b)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/71d9c788-c024-4867-b2fa-c5ebd853c62b" width="250">
+  <img src="https://github.com/user-attachments/assets/55bf781d-6eb2-4f8a-8aad-59278a7fa488" width="250">
+  <img src="https://github.com/user-attachments/assets/cd7f3704-0f79-4c4c-becb-211f410c6fb0" width="250">
+</p>
 
-![Screenshot_20251217-191432_Singularity Vault](https://github.com/user-attachments/assets/55bf781d-6eb2-4f8a-8aad-59278a7fa488)
-
-![Screenshot_20251217-191626_Singularity Vault](https://github.com/user-attachments/assets/cd7f3704-0f79-4c4c-becb-211f410c6fb0)
-
-![Screenshot_20251217-191634_Singularity Vault](https://github.com/user-attachments/assets/c4ec6460-0d0c-4ca4-b136-f47a1f30ba2d)
-
-![Screenshot_20251217-191643_Singularity Vault](https://github.com/user-attachments/assets/430deed2-ba20-445e-be55-68034b1fd7cc)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/c4ec6460-0d0c-4ca4-b136-f47a1f30ba2d" width="250">
+  <img src="https://github.com/user-attachments/assets/430deed2-ba20-445e-be55-68034b1fd7cc" width="250">
+</p>
 
 ----
 
