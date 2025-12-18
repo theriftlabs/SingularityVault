@@ -343,7 +343,7 @@ private fun AddEntryDialog(
     onNotesChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
-    onUserInteraction: () -> Unit   // 🔑 NEW
+    onUserInteraction: () -> Unit
 ) {
     val strengthResult = remember(password) {
         checkPasswordStrength(password)
@@ -352,9 +352,13 @@ private fun AddEntryDialog(
     var suggestedPassword by remember { mutableStateOf("") }
     var showSuggestion by remember { mutableStateOf(false) }
 
+    // 🔑 NEW: validation message
+    var validationError by remember { mutableStateOf<String?>(null) }
+
     AlertDialog(
         onDismissRequest = {
             onUserInteraction()
+            validationError = null
             onDismiss()
         },
         title = {
@@ -377,14 +381,14 @@ private fun AddEntryDialog(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
-                // -------- Basic info --------
                 OutlinedTextField(
                     value = serviceName,
                     onValueChange = {
+                        validationError = null
                         onUserInteraction()
                         onServiceNameChange(it)
                     },
-                    label = { Text("Service name") },
+                    label = { Text("Service name *") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -392,31 +396,26 @@ private fun AddEntryDialog(
                 OutlinedTextField(
                     value = username,
                     onValueChange = {
+                        validationError = null
                         onUserInteraction()
                         onUsernameChange(it)
                     },
-                    label = { Text("Username / email") },
+                    label = { Text("Username / email *") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // -------- Password section --------
                 Divider()
-
-                Text(
-                    text = "Password",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
 
                 OutlinedTextField(
                     value = password,
                     onValueChange = {
+                        validationError = null
                         onUserInteraction()
                         onPasswordChange(it)
                         showSuggestion = false
                     },
-                    label = { Text("Password") },
+                    label = { Text("Password *") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -441,8 +440,7 @@ private fun AddEntryDialog(
                 OutlinedButton(
                     onClick = {
                         onUserInteraction()
-                        suggestedPassword =
-                            generateStrongPassword()
+                        suggestedPassword = generateStrongPassword()
                         showSuggestion = true
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -468,14 +466,9 @@ private fun AddEntryDialog(
                                 "Suggested password",
                                 style = MaterialTheme.typography.titleSmall
                             )
-                            Text(
-                                suggestedPassword,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text(suggestedPassword)
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(
                                     onClick = {
                                         onUserInteraction()
@@ -489,8 +482,7 @@ private fun AddEntryDialog(
                                 TextButton(
                                     onClick = {
                                         onUserInteraction()
-                                        suggestedPassword =
-                                            generateStrongPassword()
+                                        suggestedPassword = generateStrongPassword()
                                     }
                                 ) {
                                     Text("Regenerate")
@@ -500,7 +492,6 @@ private fun AddEntryDialog(
                     }
                 }
 
-                // -------- Notes --------
                 Divider()
 
                 OutlinedTextField(
@@ -513,11 +504,31 @@ private fun AddEntryDialog(
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // 🔥 Validation message (inline, no toast nonsense)
+                if (validationError != null) {
+                    Text(
+                        text = validationError!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         },
         confirmButton = {
             Button(onClick = {
                 onUserInteraction()
+
+                if (
+                    serviceName.isBlank() ||
+                    username.isBlank() ||
+                    password.isBlank()
+                ) {
+                    validationError = "Service name, username, and password are required."
+                    return@Button
+                }
+
+                validationError = null
                 onConfirm()
             }) {
                 Text("Save")
@@ -526,6 +537,11 @@ private fun AddEntryDialog(
         dismissButton = {
             TextButton(onClick = {
                 onUserInteraction()
+                validationError = null
+                onServiceNameChange("")
+                onUsernameChange("")
+                onPasswordChange("")
+                onNotesChange("")
                 onDismiss()
             }) {
                 Text("Cancel")
@@ -540,89 +556,87 @@ private fun VaultEntryCard(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    // Detect dark theme based on current background
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
     val cardColors = CardDefaults.cardColors(
         containerColor = if (isDark) {
             MaterialTheme.colorScheme.surface.copy(alpha = 0.88f)
         } else {
-            // Slightly stronger, cleaner white so it stands off the light gradient better
             MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
         }
     )
 
     val cardElevation = if (isDark) 6.dp else 4.dp
 
-    // Border in BOTH themes for clearer separation
-    val cardBorder: BorderStroke =
-        BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.onSurface.copy(
-                alpha = if (isDark) 0.12f else 0.20f
-            )
+    val cardBorder = BorderStroke(
+        1.dp,
+        MaterialTheme.colorScheme.onSurface.copy(
+            alpha = if (isDark) 0.12f else 0.20f
         )
+    )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = cardColors,
         elevation = CardDefaults.cardElevation(defaultElevation = cardElevation),
         border = cardBorder
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f), // 🔑 CONSTRAIN TEXT AREA
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            modifier = Modifier.padding(8.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = entry.serviceName.ifBlank { "Unnamed service" },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = entry.username,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                IconButton(onClick = onDeleteClick) {
                     Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete entry",
-                        tint = MaterialTheme.colorScheme.error
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
+
+                Column(
+                    modifier = Modifier.weight(1f) // 🔑 THIS IS THE ACTUAL FIX
+                ) {
+                    Text(
+                        text = entry.serviceName.ifBlank { "Unnamed service" },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text = entry.username,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete entry",
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
 }
+

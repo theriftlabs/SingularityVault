@@ -45,6 +45,13 @@ fun SettingScreen(
         mutableStateOf(biometricManager.loadDerivedKey() != null)
     }
 
+    LaunchedEffect(Unit) {
+        if (!biometricManager.isBiometricAvailable()) {
+            biometricManager.clearBiometricKey()
+            biometricsEnabled = false
+        }
+    }
+
     // ---------------- Idle timer ----------------
     var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
     fun touch() { lastInteractionTime = System.currentTimeMillis() }
@@ -407,3 +414,4 @@ fun SettingScreen(
         }
     }
 }
+
