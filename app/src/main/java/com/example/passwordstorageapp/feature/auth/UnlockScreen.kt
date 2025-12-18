@@ -33,9 +33,7 @@ fun UnlockScreen(
             ?: error("UnlockScreen must be hosted in a FragmentActivity")
 
         val biometricKeyStoreManager = remember { BiometricKeyStoreManager(context) }
-        val hasBiometric by remember {
-            mutableStateOf(biometricKeyStoreManager.loadDerivedKey() != null)
-        }
+        val hasBiometric = biometricKeyStoreManager.loadDerivedKey() != null
 
         var password by remember { mutableStateOf("") }
         var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -201,18 +199,31 @@ fun launchBiometricPrompt(
             if (derivedKey != null) {
                 onSuccess(derivedKey)
             } else {
-                onError("No stored key")
+                // This is a real error
+                onError("No stored biometric key found")
             }
         }
 
         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
             super.onAuthenticationError(errorCode, errString)
+
+            // 👇 User cancelled or tapped "Use master password"
+            if (
+                errorCode == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+                errorCode == BiometricPrompt.ERROR_USER_CANCELED
+            ) {
+                // Silent exit — this is expected behavior
+                return
+            }
+
+            // Real biometric error
             onError(errString.toString())
         }
 
         override fun onAuthenticationFailed() {
             super.onAuthenticationFailed()
-            // Authentication failed but not fatal — no error toast needed
+            // Fingerprint mismatch etc.
+            // No toast needed — system already gives feedback
         }
     }
 
