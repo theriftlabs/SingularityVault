@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp
+package com.riftlabs.singularityvault
 
 import org.junit.Test
 

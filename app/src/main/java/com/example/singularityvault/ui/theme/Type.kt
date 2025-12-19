@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.ui.theme
+package com.riftlabs.singularityvault.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

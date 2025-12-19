@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -12,11 +12,11 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.passwordstorageapp.data.VaultEntry
-import com.example.passwordstorageapp.feature.auth.MasterPasswordRepository
-import com.example.passwordstorageapp.feature.auth.SessionViewModel
-import com.example.passwordstorageapp.feature.auth.SetupMasterPasswordScreen
-import com.example.passwordstorageapp.feature.auth.UnlockScreen
+import com.riftlabs.singularityvault.data.VaultEntry
+import com.riftlabs.singularityvault.feature.auth.MasterPasswordRepository
+import com.riftlabs.singularityvault.feature.auth.SessionViewModel
+import com.riftlabs.singularityvault.feature.auth.SetupMasterPasswordScreen
+import com.riftlabs.singularityvault.feature.auth.UnlockScreen
 
 @Composable
 fun AppContent(

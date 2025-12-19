@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp
+package com.riftlabs.singularityvault
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -9,15 +9,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.example.passwordstorageapp.data.AppDatabase
-import com.example.passwordstorageapp.feature.auth.MasterPasswordRepository
-import com.example.passwordstorageapp.feature.auth.SessionViewModel
-import com.example.passwordstorageapp.feature.home.AppContent
-import com.example.passwordstorageapp.feature.home.VaultViewModel
-import com.example.passwordstorageapp.feature.home.VaultViewModelFactory
-import com.example.passwordstorageapp.ui.theme.SingularityVaultTheme
-import com.example.passwordstorageapp.ui.theme.ThemeViewModel
-import data.VaultRepository
+import com.riftlabs.singularityvault.data.AppDatabase
+import com.riftlabs.singularityvault.feature.auth.MasterPasswordRepository
+import com.riftlabs.singularityvault.feature.auth.SessionViewModel
+import com.riftlabs.singularityvault.feature.home.AppContent
+import com.riftlabs.singularityvault.feature.home.VaultViewModel
+import com.riftlabs.singularityvault.feature.home.VaultViewModelFactory
+import com.riftlabs.singularityvault.ui.theme.SingularityVaultTheme
+import com.riftlabs.singularityvault.ui.theme.ThemeViewModel
+import com.riftlabs.singularityvault.data.VaultRepository
 
 class MainActivity : FragmentActivity() {
 

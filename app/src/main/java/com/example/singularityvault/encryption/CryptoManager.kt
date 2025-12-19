@@ -1,7 +1,6 @@
-package com.example.passwordstorageapp.encryption
+package com.riftlabs.singularityvault.encryption
 
 import javax.crypto.Cipher
-import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import javax.crypto.spec.GCMParameterSpec
 import java.security.SecureRandom

@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import android.content.Intent
 import android.net.Uri
@@ -22,9 +22,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.example.passwordstorageapp.feature.auth.BiometricKeyStoreManager
-import com.example.passwordstorageapp.feature.auth.MasterPasswordRepository
-import com.example.passwordstorageapp.ui.theme.GradientBackground
+import com.riftlabs.singularityvault.feature.auth.BiometricKeyStoreManager
+import com.riftlabs.singularityvault.feature.auth.MasterPasswordRepository
+import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.data
+package com.riftlabs.singularityvault.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

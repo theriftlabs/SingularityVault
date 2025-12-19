@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.data
+package com.riftlabs.singularityvault.data
 
 import android.content.Context
 import androidx.room.Database

@@ -1,7 +1,7 @@
-package data
+package com.riftlabs.singularityvault.data
 
-import com.example.passwordstorageapp.data.VaultDao
-import com.example.passwordstorageapp.data.VaultEntry
+import com.riftlabs.singularityvault.data.VaultDao
+import com.riftlabs.singularityvault.data.VaultEntry
 
 class VaultRepository(
     private val dao: VaultDao

@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.auth
+package com.riftlabs.singularityvault.feature.auth
 
 import android.widget.Toast
 import androidx.biometric.BiometricPrompt
@@ -16,7 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import com.example.passwordstorageapp.ui.theme.GradientBackground
+import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.graphics.luminance
 

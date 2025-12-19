@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.data
+package com.riftlabs.singularityvault.data
 
 import androidx.room.Dao
 import androidx.room.Delete

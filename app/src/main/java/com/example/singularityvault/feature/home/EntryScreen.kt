@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -19,8 +19,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.passwordstorageapp.data.VaultEntry
-import com.example.passwordstorageapp.ui.theme.GradientBackground
+import com.riftlabs.singularityvault.data.VaultEntry
+import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

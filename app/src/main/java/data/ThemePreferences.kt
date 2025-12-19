@@ -1,4 +1,4 @@
-package data
+package com.riftlabs.singularityvault.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey

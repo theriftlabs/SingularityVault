@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.ui.theme
+package com.riftlabs.singularityvault.ui.theme
 
 import android.app.Application
 import androidx.datastore.preferences.core.booleanPreferencesKey

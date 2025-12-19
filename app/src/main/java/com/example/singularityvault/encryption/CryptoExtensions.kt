@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.encryption
+package com.riftlabs.singularityvault.encryption
 
 import android.util.Base64
 

@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.auth
+package com.riftlabs.singularityvault.feature.auth
 
 import androidx.lifecycle.ViewModel
 

@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import kotlin.random.Random
 

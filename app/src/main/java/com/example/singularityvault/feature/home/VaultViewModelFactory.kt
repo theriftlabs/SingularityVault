@@ -1,8 +1,8 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import data.VaultRepository
+import com.riftlabs.singularityvault.data.VaultRepository
 
 class VaultViewModelFactory(
     private val repository: VaultRepository

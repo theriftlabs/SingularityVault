@@ -1,4 +1,4 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -19,10 +19,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.passwordstorageapp.R
-import com.example.passwordstorageapp.data.VaultEntry
-import com.example.passwordstorageapp.ui.theme.GradientBackground
+import com.riftlabs.singularityvault.data.VaultEntry
+import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
+import com.riftlabs.singularityvault.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

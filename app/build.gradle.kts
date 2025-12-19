@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.passwordstorageapp"
+    namespace = "com.riftlabs.singularityvault"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.passwordstorageapp"
+        applicationId = "com.riftlabs.singularityvault"
         minSdk = 25
         targetSdk = 36
         versionCode = 1

@@ -1,12 +1,12 @@
-package com.example.passwordstorageapp.feature.home
+package com.riftlabs.singularityvault.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.passwordstorageapp.data.VaultEntry
-import com.example.passwordstorageapp.encryption.CryptoManager
-import com.example.passwordstorageapp.encryption.decryptFromBase64
-import com.example.passwordstorageapp.encryption.encryptToBase64
-import data.VaultRepository
+import com.riftlabs.singularityvault.data.VaultEntry
+import com.riftlabs.singularityvault.encryption.CryptoManager
+import com.riftlabs.singularityvault.encryption.decryptFromBase64
+import com.riftlabs.singularityvault.encryption.encryptToBase64
+import com.riftlabs.singularityvault.data.VaultRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
