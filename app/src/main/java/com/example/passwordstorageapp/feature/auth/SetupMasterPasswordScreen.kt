@@ -231,7 +231,7 @@ fun SetupMasterPasswordScreen(
                                     BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
                                         Toast.makeText(
                                             context,
-                                            "No biometrics enrolled. Set up fingerprint/face in system settings.",
+                                            "No biometrics enrolled. Set up at least fingerprint in system settings.",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                         showBiometricDialog = false

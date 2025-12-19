@@ -167,7 +167,7 @@ fun SettingScreen(
                                             Toast
                                                 .makeText(
                                                     context,
-                                                    "Enable fingerprint or face unlock in device settings",
+                                                    "Enable at least fingerprint unlock in device settings",
                                                     Toast.LENGTH_SHORT
                                                 )
                                                 .show()
