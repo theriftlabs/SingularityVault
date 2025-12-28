@@ -1,7 +1,10 @@
 package com.riftlabs.singularityvault.feature.home
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,26 +20,57 @@ import com.riftlabs.singularityvault.feature.auth.MasterPasswordRepository
 import com.riftlabs.singularityvault.feature.auth.SessionViewModel
 import com.riftlabs.singularityvault.feature.auth.SetupMasterPasswordScreen
 import com.riftlabs.singularityvault.feature.auth.UnlockScreen
+import androidx.compose.ui.platform.LocalContext
+import com.riftlabs.singularityvault.feature.home.OnboardingScreen
+import com.riftlabs.singularityvault.feature.home.isOnboardingDone
+import com.riftlabs.singularityvault.feature.home.setOnboardingDone
+import kotlinx.coroutines.delay
 
 @Composable
 fun AppContent(
     masterPasswordRepository: MasterPasswordRepository,
     sessionViewModel: SessionViewModel,
     vaultViewModel: VaultViewModel,
+    securitySettingsViewModel: SecuritySettingsViewModel,
     darkModeEnabled: Boolean,
     onDarkModeToggle: (Boolean) -> Unit
 ) {
     val navController = rememberNavController()
     var currentEntry by remember { mutableStateOf<VaultEntry?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val onboardingDone = isOnboardingDone(context, masterPasswordRepository)
+    val settings by securitySettingsViewModel.settings.collectAsState()
+    
+    // Track if we were locked due to background (to force navigation on resume)
+    var lockedDueToBackground by remember { mutableStateOf(false) }
 
     DisposableEffect(lifecycleOwner, sessionViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
-                if (masterPasswordRepository.isMasterPasswordSet() && !sessionViewModel.isUnlocked) {
-                    navController.navigate("unlock") {
-                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                // Check if locked OR if we have the background lock flag set
+                if (
+                    masterPasswordRepository.isMasterPasswordSet() &&
+                    (!sessionViewModel.isUnlocked || lockedDueToBackground)
+                ) {
+                    // Show toast if locked due to background
+                    if (lockedDueToBackground) {
+                        Toast.makeText(
+                            context,
+                            "Vault locked on background",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
+                    
+                    lockedDueToBackground = false  // Reset flag
+                    navController.navigate("unlock") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                // Set flag when going to background if lock-on-background is enabled
+                if (settings.lockOnBackground && sessionViewModel.isUnlocked) {
+                    lockedDueToBackground = true
                 }
             }
         }
@@ -46,7 +80,9 @@ fun AppContent(
 
     // Decide start destination directly
     val startDestination =
-        if (!masterPasswordRepository.isMasterPasswordSet()) {
+        if (!onboardingDone) {
+            "onboarding"
+        } else if (!masterPasswordRepository.isMasterPasswordSet()) {
             "setup"
         } else if (!sessionViewModel.isUnlocked) {
             "unlock"
@@ -77,6 +113,25 @@ fun AppContent(
                     sessionViewModel.markUnlocked()
                     vaultViewModel.setKey(derivedKey)
 
+                    // Manually start the idle watcher with current settings
+                    sessionViewModel.startIdleWatcher(
+                        idleTimeoutEnabled = settings.idleTimeoutEnabled,
+                        idleTimeoutMs = settings.idleTimeoutMs
+                    ) {
+                        sessionViewModel.markLocked()
+                        vaultViewModel.clearKey()
+                        
+                        Toast.makeText(
+                            context,
+                            "Vault locked due to inactivity",
+                            Toast.LENGTH_SHORT
+                        ).show()
+
+                        navController.navigate("unlock") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+
                     navController.navigate("home") {
                         popUpTo("unlock") { inclusive = true }
                     }
@@ -84,69 +139,78 @@ fun AppContent(
             )
         }
 
-        composable("home") {
-            HomeScreen(
-                onIdleTimeout = {
-                    sessionViewModel.markLocked()
-                    sessionViewModel.vaultKey = null
-                    vaultViewModel.clearKey()
-
-                    navController.navigate("unlock") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                },
-                onEntryClick = { newEntry ->
-                    currentEntry = newEntry
-                    navController.navigate("entry_screen")
-                },
-                onSettingsClick = {
-                    navController.navigate("setting")
-                },
-                vaultViewModel = vaultViewModel
-            )
-        }
-
-        composable("entry_screen") {
-            val entry = currentEntry
-            if (entry != null) {
-                EntryScreen(
-                    vaultEntry = entry,
-                    onEditComplete = { editedEntry ->
-                        vaultViewModel.updateEntry(editedEntry)
-                        currentEntry = editedEntry
+            composable("home") {
+                HomeScreen(
+                    onEntryClick = { newEntry ->
+                        currentEntry = newEntry
+                        navController.navigate("entry_screen")
                     },
-                    onBack = { navController.popBackStack() },
-                    onIdleTimeout = {
-                        sessionViewModel.markLocked()
-                        sessionViewModel.vaultKey = null
-                        vaultViewModel.clearKey()
+                    onSettingsClick = {
+                        navController.navigate("setting")
+                    },
+                    vaultViewModel = vaultViewModel,
+                    securitySettingsViewModel = securitySettingsViewModel,
+                    sessionViewModel = sessionViewModel
+                )
+            }
 
-                        navController.navigate("unlock") {
-                            popUpTo("home") { inclusive = true }
+            composable("entry_screen") {
+                val entry = currentEntry
+                if (entry != null) {
+                    EntryScreen(
+                        vaultEntry = entry,
+                        onEditComplete = { editedEntry ->
+                            vaultViewModel.updateEntry(editedEntry)
+                            currentEntry = editedEntry
+                        },
+                        onBack = { navController.popBackStack() },
+                        securitySettingsViewModel = securitySettingsViewModel,
+                        sessionViewModel = sessionViewModel
+                    )
+                } else {
+                    navController.popBackStack()
+                }
+            }
+
+            composable("setting") {
+                SettingScreen(
+                    masterPasswordRepository = masterPasswordRepository,
+                    securitySettingsViewModel = securitySettingsViewModel,
+                    darkModeEnabled = darkModeEnabled,
+                    onDarkModeToggle = onDarkModeToggle,
+                    onBack = { navController.popBackStack() },
+                    sessionViewModel = sessionViewModel,
+                    vaultViewModel = vaultViewModel,
+                    onRestartIdleWatcher = { enabled, timeoutMs ->
+                        // Restart the watcher with NEW settings values passed directly
+                        sessionViewModel.touch()
+                        sessionViewModel.startIdleWatcher(
+                            idleTimeoutEnabled = enabled,
+                            idleTimeoutMs = timeoutMs
+                        ) {
+                            sessionViewModel.markLocked()
+                            vaultViewModel.clearKey()
+                            Toast.makeText(
+                                context,
+                                "Vault locked due to inactivity",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            navController.navigate("unlock") {
+                                popUpTo(0) { inclusive = true }
+                            }
                         }
                     }
                 )
-            } else {
-                navController.popBackStack()
+            }
+            composable("onboarding") {
+                OnboardingScreen(
+                    onComplete = {
+                        setOnboardingDone(context)
+                        navController.navigate("setup") {
+                            popUpTo("onboarding") { inclusive = true }
+                        }
+                    }
+                )
             }
         }
-
-        composable("setting") {
-            SettingScreen(
-                masterPasswordRepository = masterPasswordRepository,
-                darkModeEnabled = darkModeEnabled,
-                onDarkModeToggle = onDarkModeToggle,
-                onBack = { navController.popBackStack() },
-                onIdleTimeout = {
-                    sessionViewModel.markLocked()
-                    sessionViewModel.vaultKey = null
-                    vaultViewModel.clearKey()
-
-                    navController.navigate("unlock") {
-                        popUpTo("home") { inclusive = true }
-                    }
-                }
-            )
-        }
-    }
 }

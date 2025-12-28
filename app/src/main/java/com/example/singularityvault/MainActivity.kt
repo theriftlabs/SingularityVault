@@ -1,8 +1,10 @@
 package com.riftlabs.singularityvault
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.runtime.DisposableEffect
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -18,10 +20,19 @@ import com.riftlabs.singularityvault.feature.home.VaultViewModelFactory
 import com.riftlabs.singularityvault.ui.theme.SingularityVaultTheme
 import com.riftlabs.singularityvault.ui.theme.ThemeViewModel
 import com.riftlabs.singularityvault.data.VaultRepository
+import com.riftlabs.singularityvault.feature.home.SecuritySettingsRepository
+import com.riftlabs.singularityvault.feature.home.SecuritySettingsViewModel
+import com.riftlabs.singularityvault.feature.home.SecuritySettingsViewModelFactory
 
 class MainActivity : FragmentActivity() {
 
     private lateinit var masterPasswordRepository: MasterPasswordRepository
+
+    val securitySettingsViewModel: SecuritySettingsViewModel by viewModels {
+        SecuritySettingsViewModelFactory(
+            SecuritySettingsRepository(applicationContext)
+        )
+    }
 
     private val sessionViewModel: SessionViewModel by viewModels()
 
@@ -43,9 +54,18 @@ class MainActivity : FragmentActivity() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_STOP) {
-                    sessionViewModel.markLocked()
-                    sessionViewModel.vaultKey = null
-                    vaultViewModel.clearKey()
+                    val settings = securitySettingsViewModel.settings.value
+
+                    if (settings.lockOnBackground) {
+                        sessionViewModel.markLocked()
+                        sessionViewModel.vaultKey = null
+                        vaultViewModel.clearKey()
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Vault locked on background",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
         )
@@ -58,6 +78,7 @@ class MainActivity : FragmentActivity() {
                     masterPasswordRepository = masterPasswordRepository,
                     sessionViewModel = sessionViewModel,
                     vaultViewModel = vaultViewModel,
+                    securitySettingsViewModel = securitySettingsViewModel,
                     darkModeEnabled = darkModeEnabled,
                     onDarkModeToggle = { enabled ->
                         themeViewModel.setDarkTheme(enabled)

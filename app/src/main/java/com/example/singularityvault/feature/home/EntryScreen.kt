@@ -2,8 +2,13 @@ package com.riftlabs.singularityvault.feature.home
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -20,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.riftlabs.singularityvault.data.VaultEntry
+import com.riftlabs.singularityvault.feature.auth.SessionViewModel
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -30,8 +37,10 @@ fun EntryScreen(
     vaultEntry: VaultEntry,
     onEditComplete: (VaultEntry) -> Unit,
     onBack: () -> Unit,
-    onIdleTimeout: () -> Unit
+    securitySettingsViewModel: SecuritySettingsViewModel,
+    sessionViewModel: SessionViewModel
 ) {
+    val settings by securitySettingsViewModel.settings.collectAsState()
     GradientBackground {
         var isEditing by remember { mutableStateOf(false) }
 
@@ -43,20 +52,16 @@ fun EntryScreen(
         var isEditPasswordVisible by remember { mutableStateOf(false) }
         var showWeakPasswordInfo by remember { mutableStateOf(false) }
 
-        // ---------- Idle timer ----------
-        var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
-        fun touch() { lastInteractionTime = System.currentTimeMillis() }
-
-        val interactionModifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                while (true) {
-                    awaitPointerEventScope {
-                        awaitPointerEvent()
-                        touch()
-                    }
-                }
-            }
+//        val interactionModifier = Modifier
+//            .fillMaxSize()
+//            .pointerInput(Unit) {
+//                while (true) {
+//                    awaitPointerEventScope {
+//                        awaitPointerEvent()
+//                        sessionViewModel.touch()
+//                    }
+//                }
+//            }
 
         val strengthResult = remember(editedPassword) {
             checkPasswordStrength(editedPassword)
@@ -75,7 +80,7 @@ fun EntryScreen(
                 BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             else null
 
-        Box(modifier = interactionModifier) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = Color.Transparent,
                 topBar = {
@@ -90,7 +95,7 @@ fun EntryScreen(
                             },
                             navigationIcon = {
                                 IconButton(onClick = {
-                                    touch()
+                                    sessionViewModel.touch()
                                     onBack()
                                 }) {
                                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -133,18 +138,18 @@ fun EntryScreen(
                             )
 
                             if (!isEditing) {
-                                InfoFieldSecure("Username / Email", editedUsername, false)
-                                InfoFieldSecure("Password", editedPassword, true)
+                                InfoFieldSecure("Username / Email", editedUsername, false, settings, securitySettingsViewModel, sessionViewModel)
+                                InfoFieldSecure("Password", editedPassword, true, settings, securitySettingsViewModel, sessionViewModel)
 
                                 if (editedNote.isNotBlank()) {
-                                    InfoField("Notes", editedNote)
+                                    InfoFieldScrollable("Notes", editedNote, sessionViewModel)
                                 }
                             } else {
                                 OutlinedTextField(
                                     value = editedService,
                                     onValueChange = {
                                         editedService = it
-                                        touch()
+                                        sessionViewModel.touch()
                                     },
                                     label = { Text("Service name") },
                                     singleLine = true,
@@ -155,7 +160,7 @@ fun EntryScreen(
                                     value = editedUsername,
                                     onValueChange = {
                                         editedUsername = it
-                                        touch()
+                                        sessionViewModel.touch()
                                     },
                                     label = { Text("Username / Email") },
                                     singleLine = true,
@@ -166,7 +171,7 @@ fun EntryScreen(
                                     value = editedPassword,
                                     onValueChange = {
                                         editedPassword = it
-                                        touch()
+                                        sessionViewModel.touch()
                                     },
                                     label = { Text("Password") },
                                     singleLine = true,
@@ -179,7 +184,7 @@ fun EntryScreen(
                                     trailingIcon = {
                                         IconButton(onClick = {
                                             isEditPasswordVisible = !isEditPasswordVisible
-                                            touch()
+                                            sessionViewModel.touch()
                                         }) {
                                             Icon(
                                                 if (isEditPasswordVisible)
@@ -194,7 +199,7 @@ fun EntryScreen(
 
                                 OutlinedButton(
                                     onClick = {
-                                        touch()
+                                        sessionViewModel.touch()
                                         editedPassword = generateStrongPassword()
                                     },
                                     modifier = Modifier
@@ -205,15 +210,28 @@ fun EntryScreen(
                                     Text("Generate strong password")
                                 }
 
+                                // Scrollable Notes Field
                                 OutlinedTextField(
                                     value = editedNote,
                                     onValueChange = {
                                         editedNote = it
-                                        touch()
+                                        sessionViewModel.touch()
                                     },
                                     label = { Text("Notes") },
-                                    maxLines = 4,
-                                    modifier = Modifier.fillMaxWidth()
+                                    maxLines = 6,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(150.dp)
+                                        .pointerInput(Unit) {
+                                            awaitPointerEventScope {
+                                                while (true) {
+                                                    val event = awaitPointerEvent()
+                                                    if (event.changes.any { it.positionChanged() }) {
+                                                        sessionViewModel.touch()
+                                                    }
+                                                }
+                                            }
+                                        }
                                 )
                             }
 
@@ -222,7 +240,7 @@ fun EntryScreen(
                             if (!isEditing) {
                                 Button(
                                     onClick = {
-                                        touch()
+                                        sessionViewModel.touch()
                                         isEditing = true
                                     },
                                     modifier = Modifier
@@ -235,7 +253,7 @@ fun EntryScreen(
 
                                 OutlinedButton(
                                     onClick = {
-                                        touch()
+                                        sessionViewModel.touch()
                                         isEditing = true
                                         editedPassword = generateStrongPassword()
                                     },
@@ -253,7 +271,7 @@ fun EntryScreen(
                                 ) {
                                     Button(
                                         onClick = {
-                                            touch()
+                                            sessionViewModel.touch()
                                             onEditComplete(
                                                 vaultEntry.copy(
                                                     serviceName = editedService,
@@ -274,7 +292,7 @@ fun EntryScreen(
 
                                     OutlinedButton(
                                         onClick = {
-                                            touch()
+                                            sessionViewModel.touch()
                                             editedService = vaultEntry.serviceName
                                             editedUsername = vaultEntry.username
                                             editedPassword = vaultEntry.password
@@ -294,7 +312,7 @@ fun EntryScreen(
                             if (!strengthResult.isStrong) {
                                 TextButton(
                                     onClick = {
-                                        touch()
+                                        sessionViewModel.touch()
                                         showWeakPasswordInfo = true
                                     },
                                     modifier = Modifier.fillMaxWidth()
@@ -312,7 +330,7 @@ fun EntryScreen(
                     if (showWeakPasswordInfo) {
                         AlertDialog(
                             onDismissRequest = {
-                                touch()
+                                sessionViewModel.touch()
                                 showWeakPasswordInfo = false
                             },
                             title = {
@@ -334,25 +352,13 @@ fun EntryScreen(
                             },
                             confirmButton = {
                                 Button(onClick = {
-                                    touch()
+                                    sessionViewModel.touch()
                                     showWeakPasswordInfo = false
                                 }) {
                                     Text("Got it")
                                 }
                             }
                         )
-                    }
-                }
-            }
-
-            // ---------- Idle timeout ----------
-            LaunchedEffect(Unit) {
-                val timeoutMs = 15_000L
-                while (true) {
-                    delay(3_000L)
-                    if (System.currentTimeMillis() - lastInteractionTime >= timeoutMs) {
-                        onIdleTimeout()
-                        return@LaunchedEffect
                     }
                 }
             }
@@ -386,7 +392,10 @@ private fun InfoField(
 private fun InfoFieldSecure(
     label: String,
     value: String,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    settings: SecuritySettings,
+    securitySettingsViewModel: SecuritySettingsViewModel,
+    sessionViewModel: SessionViewModel
 ) {
     var isVisible by remember { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
@@ -395,7 +404,6 @@ private fun InfoFieldSecure(
     val clipboard = remember {
         context.getSystemService(ClipboardManager::class.java)
     }
-    val scope = rememberCoroutineScope()
 
     Column(
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -411,7 +419,6 @@ private fun InfoFieldSecure(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Show hidden dots ONLY if it's password AND visibility is off
             Text(
                 text = when {
                     isPassword && !isVisible -> "••••••••"
@@ -424,9 +431,11 @@ private fun InfoFieldSecure(
                 modifier = Modifier.weight(1f)
             )
 
-            // Show eye icon ONLY for passwords
             if (isPassword) {
-                IconButton(onClick = { isVisible = !isVisible }) {
+                IconButton(onClick = {
+                    isVisible = !isVisible
+                    sessionViewModel.touch()
+                }) {
                     Icon(
                         imageVector = if (isVisible)
                             Icons.Default.VisibilityOff
@@ -438,27 +447,34 @@ private fun InfoFieldSecure(
                 }
             }
 
-            // Copy button
             IconButton(
                 onClick = {
-                    if (value.isNotBlank() && clipboard != null) {
-                        clipboard.setPrimaryClip(
-                            ClipData.newPlainText(label, value)
-                        )
-                        copied = true
-                        scope.launch {
-                            delay(1200L)
-                            copied = false
-                            delay(8000L)
-                            clipboard.setPrimaryClip(
-                                ClipData.newPlainText("Cleared", "")
-                            )
-                        }
-                    }
+                    if (value.isBlank() || clipboard == null) return@IconButton
+
+                    securitySettingsViewModel.onClipboardCopied(
+                        clipboard = clipboard,
+                        label = label,
+                        value = value
+                    )
+                    sessionViewModel.touch()
+
+                    copied = true
+
+                    Toast.makeText(
+                        context,
+                        if (settings.clipboardClearEnabled)
+                            "Copied. Clears in ${settings.clipboardClearMs / 1000}s"
+                        else
+                            "Copied",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             ) {
                 Icon(
-                    imageVector = if (copied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    imageVector = if (copied)
+                        Icons.Default.Check
+                    else
+                        Icons.Default.ContentCopy,
                     contentDescription = "Copy",
                     tint = if (copied)
                         Color(0xFF4CAF50)
@@ -468,4 +484,64 @@ private fun InfoFieldSecure(
             }
         }
     }
+
+    // UI-only feedback reset
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1200L)
+            copied = false
+        }
+    }
 }
+
+@Composable
+private fun InfoFieldScrollable(
+    label: String,
+    value: String,
+    sessionViewModel: SessionViewModel
+) {
+    val scrollState = rememberScrollState()
+    
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                    shape = MaterialTheme.shapes.small
+                )
+                .background(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = MaterialTheme.shapes.small
+                )
+                .padding(12.dp)
+                .verticalScroll(scrollState)
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            if (event.changes.any { it.positionChanged() }) {
+                                sessionViewModel.touch()
+                            }
+                        }
+                    }
+                }
+        ) {
+            Text(
+                text = value.ifBlank { "—" },
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+

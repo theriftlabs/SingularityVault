@@ -1,19 +1,25 @@
 package com.riftlabs.singularityvault.feature.home
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -23,29 +29,22 @@ import com.riftlabs.singularityvault.data.VaultEntry
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
 import com.riftlabs.singularityvault.R
+import com.riftlabs.singularityvault.feature.auth.SessionViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onIdleTimeout: () -> Unit,
     onEntryClick: (VaultEntry) -> Unit,
     onSettingsClick: () -> Unit,
-    vaultViewModel: VaultViewModel
+    vaultViewModel: VaultViewModel,
+    securitySettingsViewModel: SecuritySettingsViewModel,
+    sessionViewModel: SessionViewModel
 ) {
-    // ---------- Idle timer ----------
-    var lastInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
-    fun touch() { lastInteractionTime = System.currentTimeMillis() }
 
-    val interactionModifier = Modifier.pointerInput(Unit) {
-        while (true) {
-            awaitPointerEventScope {
-                awaitPointerEvent()
-                touch()
-            }
-        }
-    }
+    val settings by securitySettingsViewModel.settings.collectAsState()
 
-    GradientBackground(modifier = interactionModifier) {
+    GradientBackground() {
 
         val entries: List<VaultEntry>? by vaultViewModel.entries.collectAsState()
 
@@ -57,209 +56,213 @@ fun HomeScreen(
 
         // 🔥 Delete confirmation state
         var entryPendingDelete by remember { mutableStateOf<VaultEntry?>(null) }
+        
+        // 🎬 Animation state for deletion
+        var deletingItems by remember { mutableStateOf<Set<Int>>(emptySet()) }
+        val coroutineScope = rememberCoroutineScope()
 
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                Column {
-                    CenterAlignedTopAppBar(
-                        title = {
-                            val isDark =
-                                MaterialTheme.colorScheme.background.luminance() < 0.5f
-                            val logoRes =
-                                if (isDark)
-                                    R.drawable.singularity_vault_logo_dark_new2
-                                else
-                                    R.drawable.singularity_vault_logo_light_new2
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    Column {
+                        CenterAlignedTopAppBar(
+                            title = {
+                                val isDark =
+                                    MaterialTheme.colorScheme.background.luminance() < 0.5f
+                                val logoRes =
+                                    if (isDark)
+                                        R.drawable.singularity_vault_logo_dark_new2
+                                    else
+                                        R.drawable.singularity_vault_logo_light_new2
 
-                            Image(
-                                painter = painterResource(logoRes),
-                                contentDescription = "App logo",
-                                modifier = Modifier.size(90.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        },
-                        actions = {
-                            IconButton(onClick = {
-                                touch()
-                                showAddDialog = true
-                            }) {
-                                Icon(Icons.Default.Add, contentDescription = "Add entry")
-                            }
-
-                            IconButton(onClick = {
-                                touch()
-                                onSettingsClick()
-                            }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings")
-                            }
-                        }
-                    )
-
-                    Divider(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-                        thickness = 1.dp
-                    )
-                }
-            }
-        ) { innerPadding ->
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                when {
-                    entries == null -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                strokeWidth = 3.dp,
-                                modifier = Modifier.size(32.dp)
-                            )
-                        }
-                    }
-
-                    entries!!.isEmpty() -> {
-                        EmptyState {
-                            touch()
-                            showAddDialog = true
-                        }
-                    }
-
-                    else -> {
-                        EntryList(
-                            entries = entries!!,
-                            onEntryClick = {
-                                touch()
-                                onEntryClick(it)
-                            },
-                            onDeleteClick = {
-                                touch()
-                                entryPendingDelete = it
-                            }
-                        )
-                    }
-                }
-
-                if (showAddDialog) {
-                    AddEntryDialog(
-                        serviceName = serviceName,
-                        username = username,
-                        password = password,
-                        notes = notes,
-                        onServiceNameChange = { serviceName = it },
-                        onUsernameChange = { username = it },
-                        onPasswordChange = { password = it },
-                        onNotesChange = { notes = it },
-                        onDismiss = {
-                            touch()
-                            showAddDialog = false
-                        },
-                        onConfirm = {
-                            touch()
-                            if (
-                                serviceName.isNotBlank() &&
-                                username.isNotBlank() &&
-                                password.isNotBlank()
-                            ) {
-                                vaultViewModel.addEntry(
-                                    service = serviceName.trim(),
-                                    username = username.trim(),
-                                    password = password.trim(),
-                                    notes = notes.trim().ifBlank { null }
+                                Image(
+                                    painter = painterResource(logoRes),
+                                    contentDescription = "App logo",
+                                    modifier = Modifier.size(90.dp),
+                                    contentScale = ContentScale.Fit
                                 )
-                                serviceName = ""
-                                username = ""
-                                password = ""
-                                notes = ""
+                            },
+                            actions = {
+                                IconButton(onClick = {
+                                    sessionViewModel.touch()
+                                    showAddDialog = true
+                                }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Add entry")
+                                }
+
+                                IconButton(onClick = {
+                                    sessionViewModel.touch()
+                                    onSettingsClick()
+                                }) {
+                                    Icon(Icons.Default.Settings, contentDescription = "Settings")
+                                }
+                            }
+                        )
+
+                        Divider(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                            thickness = 1.dp
+                        )
+                    }
+                }
+            ) { innerPadding ->
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    when {
+                        entries == null -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    strokeWidth = 3.dp,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+
+                        entries!!.isEmpty() -> {
+                            EmptyState {
+                                sessionViewModel.touch()
+                                showAddDialog = true
+                            }
+                        }
+
+                        else -> {
+                            EntryList(
+                                entries = entries!!,
+                                deletingItems = deletingItems,
+                                onEntryClick = {
+                                    sessionViewModel.touch()
+                                    onEntryClick(it)
+                                },
+                                onDeleteClick = {
+                                    sessionViewModel.touch()
+                                    entryPendingDelete = it
+                                },
+                                sessionViewModel
+                            )
+                        }
+                    }
+
+                    if (showAddDialog) {
+                        AddEntryDialog(
+                            serviceName = serviceName,
+                            username = username,
+                            password = password,
+                            notes = notes,
+                            onServiceNameChange = { serviceName = it },
+                            onUsernameChange = { username = it },
+                            onPasswordChange = { password = it },
+                            onNotesChange = { notes = it },
+                            onDismiss = {
+                                sessionViewModel.touch()
                                 showAddDialog = false
+                            },
+                            onConfirm = {
+                                sessionViewModel.touch()
+                                if (
+                                    serviceName.isNotBlank() &&
+                                    username.isNotBlank() &&
+                                    password.isNotBlank()
+                                ) {
+                                    vaultViewModel.addEntry(
+                                        service = serviceName.trim(),
+                                        username = username.trim(),
+                                        password = password.trim(),
+                                        notes = notes.trim().ifBlank { null }
+                                    )
+                                    serviceName = ""
+                                    username = ""
+                                    password = ""
+                                    notes = ""
+                                    showAddDialog = false
+                                }
+                            },
+                            onUserInteraction = { sessionViewModel.touch() }
+                        )
+                    }
+                }
+
+                // ---------- Delete confirmation dialog ----------
+                entryPendingDelete?.let { entry ->
+                    AlertDialog(
+                        onDismissRequest = {
+                            sessionViewModel.touch()
+                            entryPendingDelete = null
+                        },
+                        title = {
+                            Text(
+                                text = "Delete entry?",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                                Text(
+                                    text = "This action cannot be undone.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+
+                                Text(
+                                    text = entry.serviceName.ifBlank { "Unnamed service" },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+
+                                Text(
+                                    text = entry.username,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         },
-                        onUserInteraction = { touch() }
-                    )
-                }
-            }
-
-            // ---------- Delete confirmation dialog ----------
-            entryPendingDelete?.let { entry ->
-                AlertDialog(
-                    onDismissRequest = {
-                        touch()
-                        entryPendingDelete = null
-                    },
-                    title = {
-                        Text(
-                            text = "Delete entry?",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-
-                            Text(
-                                text = "This action cannot be undone.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-
-                            Text(
-                                text = entry.serviceName.ifBlank { "Unnamed service" },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-
-                            Text(
-                                text = entry.username,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                touch()
-                                vaultViewModel.deleteEntry(entry)
-                                entryPendingDelete = null
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = Color.Black   // 🔑 FORCE BLACK TEXT
-                            )
-                        ) {
-                            Text("Delete")
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                touch()
-                                entryPendingDelete = null
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    sessionViewModel.touch()
+                                    // Trigger animation first
+                                    deletingItems = deletingItems + entry.id
+                                    entryPendingDelete = null
+                                    
+                                    // Delete after animation completes
+                                    coroutineScope.launch {
+                                        delay(300)
+                                        vaultViewModel.deleteEntry(entry)
+                                        deletingItems = deletingItems - entry.id
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = Color.Black   // 🔑 FORCE BLACK TEXT
+                                )
+                            ) {
+                                Text("Delete")
                             }
-                        ) {
-                            Text(
-                                text = "Cancel",
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    sessionViewModel.touch()
+                                    entryPendingDelete = null
+                                }
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
-                    }
-                )
-            }
-
-            // ---------- Idle timeout ----------
-            LaunchedEffect(Unit) {
-                val timeoutMs = 15_000L
-                while (true) {
-                    delay(3_000L)
-                    if (System.currentTimeMillis() - lastInteractionTime >= timeoutMs) {
-                        onIdleTimeout()
-                        return@LaunchedEffect
-                    }
+                    )
                 }
             }
         }
@@ -311,21 +314,90 @@ private fun EmptyState(
 @Composable
 private fun EntryList(
     entries: List<VaultEntry>,
+    deletingItems: Set<Int>,
     onEntryClick: (VaultEntry) -> Unit,
-    onDeleteClick: (VaultEntry) -> Unit
+    onDeleteClick: (VaultEntry) -> Unit,
+    sessionViewModel : SessionViewModel
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        // Detect any pointer movement (scroll, drag, swipe)
+                        if (event.changes.any { it.positionChanged() }) {
+                            sessionViewModel.touch()
+                        }
+                    }
+                }
+            },
+            verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(
             items = entries,
             key = { entry -> entry.id }   // keep key for stable list, adjust if id field differs
         ) { entry ->
+            val isDeleting = deletingItems.contains(entry.id)
+            val scale = remember { androidx.compose.animation.core.Animatable(if (isDeleting) 1f else 0.8f) }
+            val alpha = remember { androidx.compose.animation.core.Animatable(if (isDeleting) 1f else 0f) }
+            
+            LaunchedEffect(Unit) {
+                if (!isDeleting) {
+                    launch {
+                        scale.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+                    }
+                    launch {
+                        alpha.animateTo(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        )
+                    }
+                }
+            }
+            
+            LaunchedEffect(isDeleting) {
+                if (isDeleting) {
+                    launch {
+                        scale.animateTo(
+                            targetValue = 0.8f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        )
+                    }
+                    launch {
+                        alpha.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        )
+                    }
+                }
+            }
+            
             VaultEntryCard(
                 entry = entry,
                 onClick = { onEntryClick(entry) },
-                onDeleteClick = { onDeleteClick(entry) }
+                onDeleteClick = { onDeleteClick(entry) },
+                modifier = Modifier.graphicsLayer {
+                    scaleX = scale.value
+                    scaleY = scale.value
+                    this.alpha = alpha.value
+                }
             )
         }
     }
@@ -359,6 +431,10 @@ private fun AddEntryDialog(
         onDismissRequest = {
             onUserInteraction()
             validationError = null
+            onServiceNameChange("")
+            onUsernameChange("")
+            onPasswordChange("")
+            onNotesChange("")
             onDismiss()
         },
         title = {
@@ -369,15 +445,6 @@ private fun AddEntryDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .pointerInput(Unit) {
-                        while (true) {
-                            awaitPointerEventScope {
-                                awaitPointerEvent()
-                                onUserInteraction()
-                            }
-                        }
-                    },
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
@@ -554,7 +621,8 @@ private fun AddEntryDialog(
 private fun VaultEntryCard(
     entry: VaultEntry,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
 
@@ -576,7 +644,7 @@ private fun VaultEntryCard(
     )
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         colors = cardColors,
