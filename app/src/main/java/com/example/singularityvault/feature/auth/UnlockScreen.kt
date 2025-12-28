@@ -122,6 +122,11 @@ fun UnlockScreen(
 
                         Button(
                             onClick = {
+                                if (password.isBlank()) {
+                                    errorMessage = "Please enter your master password"
+                                    return@Button
+                                }
+                                
                                 val derivedKey = masterPasswordRepository.verifyPassword(password)
                                 if (derivedKey != null) {
                                     errorMessage = null
