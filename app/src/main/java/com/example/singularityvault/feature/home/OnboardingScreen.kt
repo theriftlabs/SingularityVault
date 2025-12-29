@@ -1,6 +1,7 @@
 package com.riftlabs.singularityvault.feature.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
@@ -66,6 +67,7 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .systemBarsPadding()  // Handle system bars for edge-to-edge
                 .padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {

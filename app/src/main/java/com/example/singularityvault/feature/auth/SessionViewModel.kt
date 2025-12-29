@@ -12,6 +12,10 @@ class SessionViewModel : ViewModel() {
 
     var isUnlocked: Boolean = false
         private set
+    
+    // Track current route to determine if on authenticated screen
+    var currentRoute: String = ""
+        private set
 
     private var lastInteractionTime = android.os.SystemClock.elapsedRealtime()
     private var idleJob: Job? = null
@@ -25,6 +29,10 @@ class SessionViewModel : ViewModel() {
         isUnlocked = false
         vaultKey = null
         stopIdleWatcher()
+    }
+    
+    fun updateRoute(route: String) {
+        currentRoute = route
     }
 
     fun touch() {

@@ -4,13 +4,19 @@ import android.widget.Toast
 import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -27,12 +33,13 @@ fun SetupMasterPasswordScreen(
         val context = LocalContext.current
         val biometricKeyStoreManager = remember { BiometricKeyStoreManager(context) }
 
-        var password by remember { mutableStateOf("") }
-        var confirmPassword by remember { mutableStateOf("") }
-        var errorMessage by remember { mutableStateOf<String?>(null) }
+        var password by rememberSaveable { mutableStateOf("") }
+        var confirmPassword by rememberSaveable { mutableStateOf("") }
+        var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
+        // ByteArray cannot be saved in rememberSaveable - will regenerate if needed
         var pendingDerivedKey by remember { mutableStateOf<ByteArray?>(null) }
-        var showBiometricDialog by remember { mutableStateOf(false) }
+        var showBiometricDialog by rememberSaveable { mutableStateOf(false) }
 
         // Dark / light detection for card styling
         val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -52,16 +59,21 @@ fun SetupMasterPasswordScreen(
             if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             else null
 
+        val scrollState = rememberScrollState()
+        
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .systemBarsPadding()  // Handle system bars for edge-to-edge
                 .padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
             ) {
                 // Card over gradient
                 Card(
@@ -94,12 +106,22 @@ fun SetupMasterPasswordScreen(
                                 password = it
                                 if (errorMessage != null) errorMessage = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics {
+                                    // Mark as password for autofill & accessibility
+                                    password()
+                                },
                             label = { Text("Master password") },
                             placeholder = { Text("At least 6 chars with A–Z, 0–9, symbol") },
                             visualTransformation = PasswordVisualTransformation(),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
+                                // KeyboardType.Password requests keyboards to:
+                                // - Disable text predictions
+                                // - Disable autocorrect
+                                // - Hide typed characters (with PasswordVisualTransformation)
+                                // Note: Keyboards may still show clipboard - that's keyboard-level behavior
                                 keyboardType = KeyboardType.Password,
                                 imeAction = ImeAction.Next
                             )
@@ -112,7 +134,11 @@ fun SetupMasterPasswordScreen(
                                 confirmPassword = it
                                 if (errorMessage != null) errorMessage = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics {
+                                    password()
+                                },
                             label = { Text("Confirm master password") },
                             visualTransformation = PasswordVisualTransformation(),
                             singleLine = true,
@@ -190,7 +216,15 @@ fun SetupMasterPasswordScreen(
             // ---------------------------
             // BIOMETRIC DIALOG
             // ---------------------------
-            if (showBiometricDialog && pendingDerivedKey != null) {
+            if (showBiometricDialog) {
+                // Regenerate key if lost due to rotation
+                LaunchedEffect(Unit) {
+                    if (pendingDerivedKey == null && password.isNotBlank()) {
+                        pendingDerivedKey = masterPasswordRepository.setMasterPassword(password)
+                    }
+                }
+                
+                if (pendingDerivedKey != null) {
                 AlertDialog(
                     onDismissRequest = {
                         showBiometricDialog = false
@@ -267,6 +301,7 @@ fun SetupMasterPasswordScreen(
                         }
                     }
                 )
+                }
             }
         }
     }

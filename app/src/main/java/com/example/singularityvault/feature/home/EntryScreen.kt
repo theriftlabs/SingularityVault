@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,15 +43,15 @@ fun EntryScreen(
 ) {
     val settings by securitySettingsViewModel.settings.collectAsState()
     GradientBackground {
-        var isEditing by remember { mutableStateOf(false) }
+        var isEditing by rememberSaveable { mutableStateOf(false) }
 
-        var editedService by remember { mutableStateOf(vaultEntry.serviceName) }
-        var editedUsername by remember { mutableStateOf(vaultEntry.username) }
-        var editedPassword by remember { mutableStateOf(vaultEntry.password) }
-        var editedNote by remember { mutableStateOf(vaultEntry.notes ?: "") }
+        var editedService by rememberSaveable { mutableStateOf(vaultEntry.serviceName) }
+        var editedUsername by rememberSaveable { mutableStateOf(vaultEntry.username) }
+        var editedPassword by rememberSaveable { mutableStateOf(vaultEntry.password) }
+        var editedNote by rememberSaveable { mutableStateOf(vaultEntry.notes ?: "") }
 
-        var isEditPasswordVisible by remember { mutableStateOf(false) }
-        var showWeakPasswordInfo by remember { mutableStateOf(false) }
+        var isEditPasswordVisible by rememberSaveable { mutableStateOf(false) }
+        var showWeakPasswordInfo by rememberSaveable { mutableStateOf(false) }
 
 //        val interactionModifier = Modifier
 //            .fillMaxSize()
@@ -83,6 +84,7 @@ fun EntryScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets.systemBars,
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -109,8 +111,20 @@ fun EntryScreen(
                     }
                 }
             ) { padding ->
+                // Scroll state for rotation-safe scrolling and idle timer detection
+                val scrollState = rememberScrollState()
+                
+                // Detect scroll gestures to reset idle timer
+                LaunchedEffect(scrollState.value) {
+                    if (scrollState.value > 0 || scrollState.isScrollInProgress) {
+                        sessionViewModel.touch()
+                    }
+                }
+                
                 Column(
                     modifier = Modifier
+                        .fillMaxSize()  // Fill available space to enable scrolling
+                        .verticalScroll(scrollState)  // Enable vertical scrolling
                         .padding(padding)
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
