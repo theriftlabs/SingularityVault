@@ -3,12 +3,19 @@ package com.riftlabs.singularityvault.feature.auth
 import android.widget.Toast
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -39,8 +46,8 @@ fun UnlockScreen(
                     biometricKeyStoreManager.loadDerivedKey() != null
 
 
-        var password by remember { mutableStateOf("") }
-        var errorMessage by remember { mutableStateOf<String?>(null) }
+        var password by rememberSaveable { mutableStateOf("") }
+        var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
 
         // Dark / light detection for card styling
         val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -60,14 +67,19 @@ fun UnlockScreen(
             if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             else null
 
+        val scrollState = rememberScrollState()
+        
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .systemBarsPadding()  // Handle system bars for edge-to-edge
                 .padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -100,7 +112,11 @@ fun UnlockScreen(
                                 password = it
                                 errorMessage = null
                             },
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics {
+                                    password()
+                                },
                             label = { Text("Master password") },
                             visualTransformation = PasswordVisualTransformation(),
                             singleLine = true,

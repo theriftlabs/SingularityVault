@@ -3,6 +3,7 @@ package com.riftlabs.singularityvault
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.DisposableEffect
 import androidx.fragment.app.FragmentActivity
@@ -46,6 +47,9 @@ class MainActivity : FragmentActivity() {
     private val themeViewModel: ThemeViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Enable edge-to-edge display for immersive experience
+        enableEdgeToEdge()
+        
         setTheme(R.style.Theme_SingularityVault)
         super.onCreate(savedInstanceState)
 
@@ -56,15 +60,26 @@ class MainActivity : FragmentActivity() {
                 if (event == Lifecycle.Event.ON_STOP) {
                     val settings = securitySettingsViewModel.settings.value
 
-                    if (settings.lockOnBackground) {
+                    // Only lock and show toast if:
+                    // 1. Lock on background is enabled
+                    // 2. User is unlocked (authenticated)
+                    // 3. User is on an authenticated screen (not onboarding/setup/unlock)
+                    if (settings.lockOnBackground && sessionViewModel.isUnlocked) {
+                        val currentRoute = sessionViewModel.currentRoute
+                        val isOnAuthenticatedScreen = currentRoute in listOf("home", "entry_screen", "setting")
+                        
                         sessionViewModel.markLocked()
                         sessionViewModel.vaultKey = null
                         vaultViewModel.clearKey()
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Vault locked on background",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        
+                        // Only show toast if on authenticated screens
+                        if (isOnAuthenticatedScreen) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Vault locked on background",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     }
                 }
             }
@@ -86,5 +101,9 @@ class MainActivity : FragmentActivity() {
                 )
             }
         }
+        
+        // Clear the splash screen background drawable to prevent logo flash
+        // during screen transitions and when resuming from background
+        window.setBackgroundDrawable(null)
     }
 }

@@ -9,10 +9,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -21,6 +24,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -73,10 +81,10 @@ fun SettingScreen(
     val clipboardOptions = listOf(10_000L, 20_000L, 30_000L)
 
     // ---------------- Biometric flow ----------------
-    var showVerifyDialog by remember { mutableStateOf(false) }
-    var currentPassword by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(false) }
-    var verifyError by remember { mutableStateOf<String?>(null) }
+    var showVerifyDialog by rememberSaveable { mutableStateOf(false) }
+    var currentPassword by rememberSaveable { mutableStateOf("") }
+    var showPassword by rememberSaveable { mutableStateOf(false) }
+    var verifyError by rememberSaveable { mutableStateOf<String?>(null) }
     var activeBiometricPrompt by remember { mutableStateOf<BiometricPrompt?>(null) }
 
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
@@ -93,6 +101,7 @@ fun SettingScreen(
         Box {
             Scaffold(
                 containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets.systemBars,
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -110,8 +119,20 @@ fun SettingScreen(
                     }
                 }
             ) { padding ->
+                // Scroll state for vertical scrolling
+                val scrollState = rememberScrollState()
+                
+                // Detect scroll gestures to reset idle timer
+                LaunchedEffect(scrollState.value) {
+                    if (scrollState.value > 0 || scrollState.isScrollInProgress) {
+                        sessionViewModel.touch()
+                    }
+                }
+                
                 Column(
                     modifier = Modifier
+                        .fillMaxSize()  // Fill available space to enable scrolling
+                        .verticalScroll(scrollState)  // Enable vertical scrolling
                         .padding(padding)
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -343,6 +364,9 @@ fun SettingScreen(
                                     currentPassword = it
                                     verifyError = null
                                 },
+                                modifier = Modifier.semantics {
+                                    password()
+                                },
                                 label = { Text("Master password") },
                                 singleLine = true,
                                 visualTransformation =
@@ -350,6 +374,10 @@ fun SettingScreen(
                                         VisualTransformation.None
                                     else
                                         PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Password,
+                                    imeAction = ImeAction.Done
+                                ),
                                 trailingIcon = {
                                     IconButton(onClick = {
                                         sessionViewModel.touch()

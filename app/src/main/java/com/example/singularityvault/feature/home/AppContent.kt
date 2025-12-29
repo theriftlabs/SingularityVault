@@ -1,6 +1,11 @@
 package com.riftlabs.singularityvault.feature.home
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -89,11 +94,24 @@ fun AppContent(
         } else {
             "home"
         }
+    
+    // Track current navigation route for background lock behavior
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.collect { backStackEntry ->
+            sessionViewModel.updateRoute(backStackEntry.destination.route ?: "")
+        }
+    }
 
-    NavHost(
-        navController = navController,
-        startDestination = startDestination
+    // Apply system bars padding at root level for all child screens
+    Box(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
     ) {
+        NavHost(
+            navController = navController,
+            startDestination = startDestination
+        ) {
         composable("setup") {
             SetupMasterPasswordScreen(
                 masterPasswordRepository = masterPasswordRepository,
@@ -213,4 +231,5 @@ fun AppContent(
                 )
             }
         }
+    }
 }

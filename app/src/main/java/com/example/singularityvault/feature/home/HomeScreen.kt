@@ -8,11 +8,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -48,14 +51,15 @@ fun HomeScreen(
 
         val entries: List<VaultEntry>? by vaultViewModel.entries.collectAsState()
 
-        var showAddDialog by remember { mutableStateOf(false) }
-        var serviceName by remember { mutableStateOf("") }
-        var username by remember { mutableStateOf("") }
-        var password by remember { mutableStateOf("") }
-        var notes by remember { mutableStateOf("") }
+        var showAddDialog by rememberSaveable { mutableStateOf(false) }
+        var serviceName by rememberSaveable { mutableStateOf("") }
+        var username by rememberSaveable { mutableStateOf("") }
+        var password by rememberSaveable { mutableStateOf("") }
+        var notes by rememberSaveable { mutableStateOf("") }
 
-        // 🔥 Delete confirmation state
-        var entryPendingDelete by remember { mutableStateOf<VaultEntry?>(null) }
+        // 🔥 Delete confirmation state - store ID instead of object
+        var entryPendingDeleteId by rememberSaveable { mutableIntStateOf(-1) }
+        val entryPendingDelete = entries?.find { it.id == entryPendingDeleteId }
         
         // 🎬 Animation state for deletion
         var deletingItems by remember { mutableStateOf<Set<Int>>(emptySet()) }
@@ -64,6 +68,7 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = Color.Transparent,
+                contentWindowInsets = WindowInsets.systemBars,
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -144,7 +149,7 @@ fun HomeScreen(
                                 },
                                 onDeleteClick = {
                                     sessionViewModel.touch()
-                                    entryPendingDelete = it
+                                    entryPendingDeleteId = it.id
                                 },
                                 sessionViewModel
                             )
@@ -195,7 +200,7 @@ fun HomeScreen(
                     AlertDialog(
                         onDismissRequest = {
                             sessionViewModel.touch()
-                            entryPendingDelete = null
+                            entryPendingDeleteId = -1
                         },
                         title = {
                             Text(
@@ -232,7 +237,7 @@ fun HomeScreen(
                                     sessionViewModel.touch()
                                     // Trigger animation first
                                     deletingItems = deletingItems + entry.id
-                                    entryPendingDelete = null
+                                    entryPendingDeleteId = -1
                                     
                                     // Delete after animation completes
                                     coroutineScope.launch {
@@ -253,7 +258,7 @@ fun HomeScreen(
                             TextButton(
                                 onClick = {
                                     sessionViewModel.touch()
-                                    entryPendingDelete = null
+                                    entryPendingDeleteId = -1
                                 }
                             ) {
                                 Text(
@@ -444,7 +449,17 @@ private fun AddEntryDialog(
             )
         },
         text = {
+            val scrollState = rememberScrollState()
+            
+            // Detect scroll gestures to reset idle timer
+            LaunchedEffect(scrollState.value) {
+                if (scrollState.value > 0 || scrollState.isScrollInProgress) {
+                    onUserInteraction()
+                }
+            }
+            
             Column(
+                modifier = Modifier.verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
