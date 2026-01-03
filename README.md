@@ -149,8 +149,8 @@ The final decision always remains with the user.
 </p>
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/c4ec6460-0d0c-4ca4-b136-f47a1f30ba2d" width="250">
-  <img src="https://github.com/user-attachments/assets/430deed2-ba20-445e-be55-68034b1fd7cc" width="250">
+  <img src="https://github.com/user-attachments/assets/67f8c54b-c739-4ef0-b6e2-8e91ef6e1d4e" width="250">
+  <img src="https://github.com/user-attachments/assets/c4b605f3-e3aa-42d1-bf91-7c0a0712dd15" width="250">
 </p>
 
 ----
