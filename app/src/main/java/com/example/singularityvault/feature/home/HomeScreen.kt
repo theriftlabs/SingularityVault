@@ -1,10 +1,12 @@
 package com.riftlabs.singularityvault.feature.home
 
+import android.app.Activity
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -13,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -24,10 +27,16 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.riftlabs.singularityvault.data.VaultEntry
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.delay
@@ -44,6 +53,25 @@ fun HomeScreen(
     securitySettingsViewModel: SecuritySettingsViewModel,
     sessionViewModel: SessionViewModel
 ) {
+
+    // Configure status bar appearance once per screen using SideEffect
+    val view = LocalView.current
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    SideEffect {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        // Configure status bar for visibility in both themes
+        if (isDarkTheme) {
+            // Dark theme: dark background with light icons
+            window.statusBarColor = android.graphics.Color.parseColor("#0F172A")
+            insetsController.isAppearanceLightStatusBars = false
+        } else {
+            // Light theme: transparent background with dark icons
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            insetsController.isAppearanceLightStatusBars = true
+        }
+    }
 
     val settings by securitySettingsViewModel.settings.collectAsState()
 
@@ -68,7 +96,7 @@ fun HomeScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets.systemBars,
+                contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime),
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -428,6 +456,8 @@ private fun AddEntryDialog(
 
     var suggestedPassword by remember { mutableStateOf("") }
     var showSuggestion by remember { mutableStateOf(false) }
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
 
     // 🔑 NEW: validation message
     var validationError by remember { mutableStateOf<String?>(null) }
@@ -442,6 +472,7 @@ private fun AddEntryDialog(
             onNotesChange("")
             onDismiss()
         },
+        properties = DialogProperties(usePlatformDefaultWidth = false),  // Control dialog width
         title = {
             Text(
                 text = "Add entry",
@@ -450,6 +481,14 @@ private fun AddEntryDialog(
         },
         text = {
             val scrollState = rememberScrollState()
+            val configuration = LocalConfiguration.current
+            val density = LocalDensity.current
+            val screenHeight = configuration.screenHeightDp.dp
+            
+            // Detect IME (keyboard) height
+            val imeInsets = WindowInsets.ime
+            val imeHeight = with(density) { imeInsets.getBottom(this).toDp() }
+            val isKeyboardOpen = imeHeight > 0.dp
             
             // Detect scroll gestures to reset idle timer
             LaunchedEffect(scrollState.value) {
@@ -458,8 +497,33 @@ private fun AddEntryDialog(
                 }
             }
             
+            // Dynamic max height: shrink when keyboard is open
+            // This prevents dialog from shifting behind status bar
+            val maxContentHeight = if (isKeyboardOpen) {
+                // When keyboard open: leave room for title, buttons, status bar, and keyboard
+                screenHeight * 0.4f  // 40% of screen
+            } else {
+                // When keyboard closed: larger dialog
+                screenHeight * 0.65f  // 65% of screen
+            }
+            
             Column(
-                modifier = Modifier.verticalScroll(scrollState),
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)  // 90% of screen width
+                    .heightIn(max = maxContentHeight)  // Dynamic height constraint
+                    .verticalScroll(scrollState)
+                    .imePadding()  // Add bottom padding when keyboard opens (inside scrollable area)
+                    .pointerInput(Unit) {
+                        // Detect any touch/scroll to reset idle timer
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                if (event.changes.any { it.positionChanged() }) {
+                                    onUserInteraction()
+                                }
+                            }
+                        }
+                    },
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
 
@@ -499,7 +563,25 @@ private fun AddEntryDialog(
                     },
                     label = { Text("Password *") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (isPasswordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = {
+                            onUserInteraction()
+                            isPasswordVisible = !isPasswordVisible
+                        }) {
+                            Icon(
+                                imageVector = if (isPasswordVisible)
+                                    Icons.Default.VisibilityOff
+                                else
+                                    Icons.Default.Visibility,
+                                contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    }
                 )
 
                 if (password.isNotBlank() && !strengthResult.isStrong) {

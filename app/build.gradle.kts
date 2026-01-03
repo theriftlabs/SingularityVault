@@ -13,7 +13,7 @@ android {
         applicationId = "com.riftlabs.singularityvault"
         minSdk = 25
         targetSdk = 36
-        versionCode = 4
+        versionCode = 5
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -59,6 +59,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.foundation)
     implementation(libs.ui)
+    implementation(libs.ui.graphics)
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.material3)

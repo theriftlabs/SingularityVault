@@ -1,19 +1,23 @@
 package com.riftlabs.singularityvault.feature.home
 
+import android.app.Activity
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import kotlinx.coroutines.launch
 
@@ -63,11 +67,30 @@ fun OnboardingScreen(
     val pagerState = rememberPagerState { pages.size }
     val scope = rememberCoroutineScope()
 
+    // Configure status bar appearance once per screen using SideEffect
+    val view = LocalView.current
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    SideEffect {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        // Configure status bar for visibility in both themes
+        if (isDark) {
+            // Dark theme: dark background with light icons
+            window.statusBarColor = android.graphics.Color.parseColor("#0F172A")
+            insetsController.isAppearanceLightStatusBars = false
+        } else {
+            // Light theme: transparent background with dark icons
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            insetsController.isAppearanceLightStatusBars = true
+        }
+    }
+
     GradientBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()  // Handle system bars for edge-to-edge
+                .windowInsetsPadding(WindowInsets.systemBars)  // Handle status/nav bars
                 .padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
