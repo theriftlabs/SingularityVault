@@ -1,9 +1,10 @@
 package com.riftlabs.singularityvault.feature.auth
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -22,16 +24,35 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.graphics.luminance
 
 @Composable
 fun UnlockScreen(
     masterPasswordRepository: MasterPasswordRepository,
     onUnlockSuccess: (ByteArray) -> Unit = {}
 ) {
+    // Configure status bar appearance once per screen using SideEffect
+    val view = LocalView.current
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    SideEffect {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        // Configure status bar for visibility in both themes
+        if (isDarkTheme) {
+            // Dark theme: dark background with light icons
+            window.statusBarColor = android.graphics.Color.parseColor("#0F172A")
+            insetsController.isAppearanceLightStatusBars = false
+        } else {
+            // Light theme: transparent background with dark icons
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            insetsController.isAppearanceLightStatusBars = true
+        }
+    }
+
     GradientBackground {
         // for local context
         val context = LocalContext.current
@@ -66,22 +87,20 @@ fun UnlockScreen(
         val cardBorder: BorderStroke? =
             if (isDark) BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
             else null
-
-        val scrollState = rememberScrollState()
+        
         
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()  // Handle system bars for edge-to-edge
-                .padding(horizontal = 24.dp),
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .imePadding()
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),  // Enable scrolling when keyboard opens
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(scrollState),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),

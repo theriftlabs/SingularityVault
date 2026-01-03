@@ -49,15 +49,9 @@ fun SingularityVaultTheme(
     if (!view.isInEditMode) {
         val window = (view.context as Activity).window
 
-        // Edge-to-edge layout
+        // Enable modern WindowInsets handling for IME support
+        // Individual screens will handle system bar padding with statusBarsPadding() and navigationBarsPadding()
         WindowCompat.setDecorFitsSystemWindows(window, false)
-
-        // Transparent status bar to let gradients show through
-        window.statusBarColor = Color.Transparent.toArgb()
-
-        // Light status bar icons on light theme, dark icons on dark theme
-        val insetsController = WindowCompat.getInsetsController(window, view)
-        insetsController.isAppearanceLightStatusBars = !darkTheme
     }
 
     MaterialTheme(

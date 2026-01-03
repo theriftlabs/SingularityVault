@@ -1,11 +1,9 @@
 package com.riftlabs.singularityvault.feature.home
 
 import android.widget.Toast
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -41,6 +40,7 @@ fun AppContent(
     onDarkModeToggle: (Boolean) -> Unit
 ) {
     val navController = rememberNavController()
+    
     var currentEntry by remember { mutableStateOf<VaultEntry?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
@@ -83,17 +83,17 @@ fun AppContent(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Decide start destination directly
-    val startDestination =
-        if (!onboardingDone) {
-            "onboarding"
-        } else if (!masterPasswordRepository.isMasterPasswordSet()) {
-            "setup"
-        } else if (!sessionViewModel.isUnlocked) {
-            "unlock"
-        } else {
-            "home"
+    // Calculate startDestination ONLY ONCE on initial composition
+    // Don't use reactive keys - navigation is handled explicitly via navigate() calls
+    // Theme changes should NOT recalculate this value
+    val startDestination = remember {
+        when {
+            !onboardingDone -> "onboarding"
+            !masterPasswordRepository.isMasterPasswordSet() -> "setup"
+            !sessionViewModel.isUnlocked -> "unlock"
+            else -> "home"
         }
+    }
     
     // Track current navigation route for background lock behavior
     LaunchedEffect(navController) {
@@ -102,16 +102,12 @@ fun AppContent(
         }
     }
 
-    // Apply system bars padding at root level for all child screens
-    Box(
-        modifier = androidx.compose.ui.Modifier
-            .fillMaxSize()
-            .systemBarsPadding()
+    // System now handles insets automatically with setDecorFitsSystemWindows(true)
+    // No need for manual padding wrapper
+    NavHost(
+        navController = navController,
+        startDestination = startDestination
     ) {
-        NavHost(
-            navController = navController,
-            startDestination = startDestination
-        ) {
         composable("setup") {
             SetupMasterPasswordScreen(
                 masterPasswordRepository = masterPasswordRepository,
@@ -160,11 +156,17 @@ fun AppContent(
             composable("home") {
                 HomeScreen(
                     onEntryClick = { newEntry ->
-                        currentEntry = newEntry
-                        navController.navigate("entry_screen")
+                        // Only navigate if still unlocked (prevent race with idle timer)
+                        if (sessionViewModel.isUnlocked) {
+                            currentEntry = newEntry
+                            navController.navigate("entry_screen")
+                        }
                     },
                     onSettingsClick = {
-                        navController.navigate("setting")
+                        // Only navigate if still unlocked (prevent race with idle timer)
+                        if (sessionViewModel.isUnlocked) {
+                            navController.navigate("setting")
+                        }
                     },
                     vaultViewModel = vaultViewModel,
                     securitySettingsViewModel = securitySettingsViewModel,
@@ -181,7 +183,12 @@ fun AppContent(
                             vaultViewModel.updateEntry(editedEntry)
                             currentEntry = editedEntry
                         },
-                        onBack = { navController.popBackStack() },
+                        onBack = { 
+                            // Only navigate if still unlocked (prevent race with idle timer)
+                            if (sessionViewModel.isUnlocked) {
+                                navController.popBackStack()
+                            }
+                        },
                         securitySettingsViewModel = securitySettingsViewModel,
                         sessionViewModel = sessionViewModel
                     )
@@ -196,7 +203,12 @@ fun AppContent(
                     securitySettingsViewModel = securitySettingsViewModel,
                     darkModeEnabled = darkModeEnabled,
                     onDarkModeToggle = onDarkModeToggle,
-                    onBack = { navController.popBackStack() },
+                    onBack = { 
+                        // Only navigate if still unlocked (prevent race with idle timer)
+                        if (sessionViewModel.isUnlocked) {
+                            navController.popBackStack()
+                        }
+                    },
                     sessionViewModel = sessionViewModel,
                     vaultViewModel = vaultViewModel,
                     onRestartIdleWatcher = { enabled, timeoutMs ->
@@ -231,5 +243,4 @@ fun AppContent(
                 )
             }
         }
-    }
 }

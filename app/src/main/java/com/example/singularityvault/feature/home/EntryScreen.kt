@@ -1,5 +1,6 @@
 package com.riftlabs.singularityvault.feature.home
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
@@ -7,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,11 +23,13 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.riftlabs.singularityvault.data.VaultEntry
 import com.riftlabs.singularityvault.feature.auth.SessionViewModel
 import com.riftlabs.singularityvault.ui.theme.GradientBackground
@@ -41,6 +45,25 @@ fun EntryScreen(
     securitySettingsViewModel: SecuritySettingsViewModel,
     sessionViewModel: SessionViewModel
 ) {
+    // Configure status bar appearance once per screen using SideEffect
+    val view = LocalView.current
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    SideEffect {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        // Configure status bar for visibility in both themes
+        if (isDarkTheme) {
+            // Dark theme: dark background with light icons
+            window.statusBarColor = android.graphics.Color.parseColor("#0F172A")
+            insetsController.isAppearanceLightStatusBars = false
+        } else {
+            // Light theme: transparent background with dark icons
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            insetsController.isAppearanceLightStatusBars = true
+        }
+    }
+
     val settings by securitySettingsViewModel.settings.collectAsState()
     GradientBackground {
         var isEditing by rememberSaveable { mutableStateOf(false) }
@@ -52,6 +75,7 @@ fun EntryScreen(
 
         var isEditPasswordVisible by rememberSaveable { mutableStateOf(false) }
         var showWeakPasswordInfo by rememberSaveable { mutableStateOf(false) }
+        var validationError by rememberSaveable { mutableStateOf<String?>(null) }
 
 //        val interactionModifier = Modifier
 //            .fillMaxSize()
@@ -84,7 +108,7 @@ fun EntryScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
                 containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets.systemBars,
+                contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime),
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -163,9 +187,10 @@ fun EntryScreen(
                                     value = editedService,
                                     onValueChange = {
                                         editedService = it
+                                        validationError = null
                                         sessionViewModel.touch()
                                     },
-                                    label = { Text("Service name") },
+                                    label = { Text("Service name *") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -174,9 +199,10 @@ fun EntryScreen(
                                     value = editedUsername,
                                     onValueChange = {
                                         editedUsername = it
+                                        validationError = null
                                         sessionViewModel.touch()
                                     },
-                                    label = { Text("Username / Email") },
+                                    label = { Text("Username / Email *") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -185,9 +211,10 @@ fun EntryScreen(
                                     value = editedPassword,
                                     onValueChange = {
                                         editedPassword = it
+                                        validationError = null
                                         sessionViewModel.touch()
                                     },
-                                    label = { Text("Password") },
+                                    label = { Text("Password *") },
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
                                     visualTransformation =
@@ -251,6 +278,15 @@ fun EntryScreen(
 
                             Spacer(Modifier.height(8.dp))
 
+                            // Validation error message
+                            if (validationError != null) {
+                                Text(
+                                    text = validationError!!,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+
                             if (!isEditing) {
                                 Button(
                                     onClick = {
@@ -286,6 +322,18 @@ fun EntryScreen(
                                     Button(
                                         onClick = {
                                             sessionViewModel.touch()
+                                            
+                                            // Validate required fields
+                                            if (
+                                                editedService.isBlank() ||
+                                                editedUsername.isBlank() ||
+                                                editedPassword.isBlank()
+                                            ) {
+                                                validationError = "Service name, username, and password are required."
+                                                return@Button
+                                            }
+                                            
+                                            validationError = null
                                             onEditComplete(
                                                 vaultEntry.copy(
                                                     serviceName = editedService,
@@ -307,6 +355,7 @@ fun EntryScreen(
                                     OutlinedButton(
                                         onClick = {
                                             sessionViewModel.touch()
+                                            validationError = null
                                             editedService = vaultEntry.serviceName
                                             editedUsername = vaultEntry.username
                                             editedPassword = vaultEntry.password
@@ -477,7 +526,7 @@ private fun InfoFieldSecure(
                     Toast.makeText(
                         context,
                         if (settings.clipboardClearEnabled)
-                            "Copied. Clears in ${settings.clipboardClearMs / 1000}s"
+                            "Copied. Clears after ${settings.clipboardClearMs / 1000}s"
                         else
                             "Copied",
                         Toast.LENGTH_SHORT

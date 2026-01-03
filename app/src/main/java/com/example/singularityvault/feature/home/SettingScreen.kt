@@ -1,5 +1,6 @@
 package com.riftlabs.singularityvault.feature.home
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -9,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.password
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.text.KeyboardOptions
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
 import com.riftlabs.singularityvault.feature.auth.BiometricKeyStoreManager
 import com.riftlabs.singularityvault.feature.auth.MasterPasswordRepository
@@ -52,6 +56,25 @@ fun SettingScreen(
     vaultViewModel: VaultViewModel,
     onRestartIdleWatcher: (enabled: Boolean, timeoutMs: Long) -> Unit
 ) {
+    // Configure status bar appearance once per screen using SideEffect
+    val view = LocalView.current
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    SideEffect {
+        val window = (view.context as Activity).window
+        val insetsController = WindowCompat.getInsetsController(window, view)
+        
+        // Configure status bar for visibility in both themes
+        if (isDarkTheme) {
+            // Dark theme: dark background with light icons
+            window.statusBarColor = android.graphics.Color.parseColor("#0F172A")
+            insetsController.isAppearanceLightStatusBars = false
+        } else {
+            // Light theme: transparent background with dark icons
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            insetsController.isAppearanceLightStatusBars = true
+        }
+    }
+
     val context = LocalContext.current
     val activity = context as FragmentActivity
     val settings by securitySettingsViewModel.settings.collectAsState()
@@ -82,10 +105,24 @@ fun SettingScreen(
 
     // ---------------- Biometric flow ----------------
     var showVerifyDialog by rememberSaveable { mutableStateOf(false) }
+    var activeBiometricPrompt by remember { mutableStateOf<BiometricPrompt?>(null) }
     var currentPassword by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var verifyError by rememberSaveable { mutableStateOf<String?>(null) }
-    var activeBiometricPrompt by remember { mutableStateOf<BiometricPrompt?>(null) }
+    
+    // Monitor session lock state and dismiss biometric prompt if locked
+    // Use LaunchedEffect with polling since isUnlocked is not a State
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(500) // Check every 500ms
+            if (!sessionViewModel.isUnlocked) {
+                // Session locked - dismiss biometric prompt if showing
+                activeBiometricPrompt?.cancelAuthentication()
+                activeBiometricPrompt = null
+                showVerifyDialog = false
+            }
+        }
+    }
 
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val cardColors = CardDefaults.cardColors(
@@ -101,7 +138,7 @@ fun SettingScreen(
         Box {
             Scaffold(
                 containerColor = Color.Transparent,
-                contentWindowInsets = WindowInsets.systemBars,
+                contentWindowInsets = WindowInsets.systemBars.union(WindowInsets.ime),
                 topBar = {
                     Column {
                         CenterAlignedTopAppBar(
@@ -232,7 +269,7 @@ fun SettingScreen(
                     // -------- Clipboard card --------
                     SecuritySliderCard(
                         title = "Clipboard auto-clear",
-                        description = "Clear copied passwords automatically.",
+                        description = "Clear copied passwords automatically after inactivity.",
                         icon = Icons.Default.ContentPasteOff,
                         options = listOf("10 sec", "20 sec", "30 sec"),
                         enabled = settings.clipboardClearEnabled,
@@ -574,9 +611,15 @@ private fun SecuritySliderCard(
     ) {
         Slider(
             value = safeIndex.toFloat(),
-            onValueChange = { onIndexChange(it.toInt()) },
+            onValueChange = { floatValue ->
+                // Round to nearest integer index for reliable tap/drag behavior
+                // This ensures consistent snapping across all devices and DPIs
+                val nearestIndex = kotlin.math.round(floatValue).toInt()
+                val clampedIndex = nearestIndex.coerceIn(0, options.lastIndex)
+                onIndexChange(clampedIndex)
+            },
             valueRange = 0f..options.lastIndex.toFloat(),
-            steps = options.size - 2,
+            steps = if (options.size > 2) options.size - 2 else 0,  // Discrete steps between endpoints
             enabled = enabled,
             interactionSource = interactionSource
         )
