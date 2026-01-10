@@ -141,7 +141,8 @@ fun UnlockScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done
+                                imeAction = ImeAction.Done,
+                                autoCorrect = false
                             )
                         )
 
