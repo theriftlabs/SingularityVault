@@ -269,7 +269,7 @@ fun SettingScreen(
                     // -------- Clipboard card --------
                     SecuritySliderCard(
                         title = "Clipboard auto-clear",
-                        description = "Clear copied passwords automatically after inactivity.",
+                        description = "Clear copied passwords automatically after inactivity. Clipboard behavior may vary depending on your device and Android version.",
                         icon = Icons.Default.ContentPasteOff,
                         options = listOf("10 sec", "20 sec", "30 sec"),
                         enabled = settings.clipboardClearEnabled,
@@ -413,7 +413,8 @@ fun SettingScreen(
                                         PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Password,
-                                    imeAction = ImeAction.Done
+                                    imeAction = ImeAction.Done,
+                                    autoCorrect = false
                                 ),
                                 trailingIcon = {
                                     IconButton(onClick = {

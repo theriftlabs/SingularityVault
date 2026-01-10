@@ -143,9 +143,10 @@ fun SetupMasterPasswordScreen(
                                 // - Disable text predictions
                                 // - Disable autocorrect
                                 // - Hide typed characters (with PasswordVisualTransformation)
-                                // Note: Keyboards may still show clipboard - that's keyboard-level behavior
+                                // autoCorrect = false disables personalized learning and suggestions
                                 keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Next
+                                imeAction = ImeAction.Next,
+                                autoCorrect = false
                             )
                         )
 
@@ -166,7 +167,8 @@ fun SetupMasterPasswordScreen(
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(
                                 keyboardType = KeyboardType.Password,
-                                imeAction = ImeAction.Done
+                                imeAction = ImeAction.Done,
+                                autoCorrect = false
                             )
                         )
 
